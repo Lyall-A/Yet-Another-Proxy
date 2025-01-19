@@ -124,7 +124,8 @@ proxy.on("request", (http, connection) => {
                 // Proxy
                 connection.proxy({
                     host: service["originHost"],
-                    port: service["originPort"]
+                    port: service["originPort"],
+                    ssl: service["ssl"]
                 });
             } else {
                 log(0, `Nothing to do with '${serviceName}'!`);

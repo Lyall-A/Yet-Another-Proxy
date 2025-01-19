@@ -59,11 +59,6 @@ class ProxyConnection extends EventEmitter {
         
         if (options.ssl) {
             // With SSL (HTTPS)
-            if ((!options.cert && !options.certFile) || (!options.key && !options.keyFile)) throw new Error("No key or certificate provided for origin connection");
-            
-            if (!originConnectionOptions.cert) originConnectionOptions.cert = options.cert || fs.readFileSync(options.certFile);
-            if (!originConnectionOptions.key) originConnectionOptions.key = options.key || fs.readFileSync(options.keyFile);
-            
             this.originConnection = new Connection(tls.connect(originConnectionOptions));
         } else {
             // Without SSL (HTTP)
@@ -89,6 +84,7 @@ class ProxyConnection extends EventEmitter {
         });
 
         this.originConnection.on("error", err => {
+            // console.log(err);
             this.close();
         });
 
