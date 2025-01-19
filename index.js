@@ -27,9 +27,9 @@ fs.watchFile("./authorization.html", () => {
 });
 
 proxy.on("request", (http, connection) => {
+    const host = http.getHeader("Host");
+    const address = connection.clientConnection.address;
     for (const service of services) {
-        const host = http.getHeader("Host");
-        const address = connection.clientConnection.address;
         const serviceName = service.name || service.host;
 
         const formatStringObject = {
@@ -51,7 +51,7 @@ proxy.on("request", (http, connection) => {
                     return;
                 }
             }
-            
+
             // Blacklist
             if (service["blacklist"]?.length) {
                 if (matchAddress(address, service["blacklist"])) {
@@ -67,8 +67,8 @@ proxy.on("request", (http, connection) => {
                     log(1, `Service '${serviceName}' has authentication enabled but no users or password set`);
                     return;
                 }
-                
-                if (service["authenticationType"].toLowerCase() === "basic") { 
+
+                if (service["authenticationType"].toLowerCase() === "basic") {
                     // Basic authentication
                     const encodedAuthorization = http.getHeader("Authorization")?.match(/Basic (.+)/);
                     if (encodedAuthorization) {
@@ -94,7 +94,7 @@ proxy.on("request", (http, connection) => {
                     return;
                 }
             }
-            
+
             if (connection.firstRequest) {
                 log(2, `'${address}' connecting to '${serviceName}'`);
                 connection.on("close", () => {
@@ -109,8 +109,23 @@ proxy.on("request", (http, connection) => {
             }
 
             // Modify request headers
-            if (service["modifiedRequestHeaders"]) for (const [key, value] of service["modifiedRequestHeaders"]) {
-                http.setHeader(key, formatString(value, formatStringObject));
+            if (service["modifiedRequestHeaders"]) {
+                const originalHeaders = http.headers.map(([key, value]) => ([key, value]));
+                for (const [key, value] of service["modifiedRequestHeaders"]) {
+                    if (value === null) {
+                        // Delete header
+                        http.removeHeader(key);
+                    } else if (value === true) {
+                        // Keep original header
+                        const originalHeader = originalHeaders.find(([originalKey, originalValue]) => originalKey === key);
+                        if (originalHeader) http.setHeader(key, originalHeader[1]);
+                    } else {
+                        // Modify header
+                        http.setHeader(key, formatString(value, formatStringObject));
+                    }
+                }
+                console.log("Original:", originalHeaders);
+                console.log("Modified:", http.headers);
             }
 
             // Disallow robots
@@ -137,6 +152,7 @@ proxy.on("request", (http, connection) => {
         }
     }
 
+    log(2, `'${address}' went to unknown host '${host}'`);
     // return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
 });
 
@@ -173,14 +189,19 @@ function loadServices() {
             const service = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
             services.push({
                 name: service.name || path.basename(serviceFile, path.extname(serviceFile)),
-                ...(config.defaultServiceOptions || { }),
-                ...service
+                ...(config.defaultServiceOptions || {}),
+                ...service,
+
+                modifiedRequestHeaders: [
+                    ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
+                    ...(service.modifiedRequestHeaders || [])
+                ]
             });
             log(0, `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
         } catch (err) {
             log(0, `Failed to load service '${serviceFile}', ${err}`);
         }
-        
+
         // (function parseServiceFile(serviceFilePath) {
         //     const serviceFile = fs.readFileSync(serviceFilePath, "utf-8");
         //     const service = Object.fromEntries(Array.from(serviceFile.matchAll(/([a-zA-Z0-9_]+)\s*=\s*(.*)/g)).map(([match, key, value]) => ([ key, value ])));
