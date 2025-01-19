@@ -3,3 +3,4 @@
 
 ## TODO's
 * Custom service file (not JSON)
+* Watch each service for changes

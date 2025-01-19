@@ -26,10 +26,15 @@ fs.watchFile("./authorization.html", () => {
 
 proxy.on("request", (http, connection) => {
     for (const service of services) {
-        if (service["host"] === http.getHeader("Host")) {
-            const address = connection.clientConnection.address;
-            const serviceName = service.name || service.host;
+        const host = http.getHeader("host");
+        const address = connection.clientConnection.address;
+        const serviceName = service.name || service.host;
 
+        if (service["hosts"].some(i =>
+            i === host ||
+            (i.startsWith(".") && host.endsWith(i)) ||
+            (i.endsWith(".") && host.startsWith(i))
+        )) {
             if (service["whitelist"]?.length) {
                 if (!matchAddress(address, service["whitelist"])) {
                     log(1, `Un-whitelisted address '${address}' attempted to connect to '${serviceName}'`);
@@ -90,9 +95,11 @@ proxy.on("request", (http, connection) => {
             
             connection.on("client-data", (data, http) => log(3, `Data from client (Length: ${data.byteLength})`));
             connection.on("origin-data", (data, http) => log(3, `Data from origin (Length: ${data.byteLength})`));
-            break;
+            return;
         }
     }
+
+    return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
 });
 
 proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log(0, `Proxy listening at ${proxy.hostname}:${proxy.port}`));
@@ -124,10 +131,18 @@ function loadServices() {
     })(config.servicesLocation);
 
     for (const serviceFile of serviceFiles) {
-        services.push({
-            ...(config.defaultServiceOptions || { }),
-            ...JSON.parse(fs.readFileSync(serviceFile, "utf-8"))
-        });
+        try {
+            const service = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
+            services.push({
+                name: service.name || path.basename(serviceFile, path.extname(serviceFile)),
+                ...(config.defaultServiceOptions || { }),
+                ...service
+            });
+            log(0, `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
+        } catch (err) {
+            log(0, `Failed to load service '${serviceFile}', ${err}`);
+        }
+        
         // (function parseServiceFile(serviceFilePath) {
         //     const serviceFile = fs.readFileSync(serviceFilePath, "utf-8");
         //     const service = Object.fromEntries(Array.from(serviceFile.matchAll(/([a-zA-Z0-9_]+)\s*=\s*(.*)/g)).map(([match, key, value]) => ([ key, value ])));
@@ -166,13 +181,7 @@ function matchAddress(address, matches) {
     return matched;
 }
 
-const logLevels = [
-    "INFO",
-    "WARN",
-    "LOG",
-    "DEBUG"
-]
 function log(level, ...msgs) {
     if (config.logLevel < level) return;
-    console.log(`[${logLevels[level]}]`, ...msgs);
+    console.log(`[${config.logLevels[level]}]`, ...msgs);
 }

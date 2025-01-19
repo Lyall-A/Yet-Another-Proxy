@@ -1,0 +1,6 @@
+{
+    "hosts": ["deluge."],
+    "originHost": "192.168.1.1",
+    "originPort": 8112,
+    "authentication": true
+}

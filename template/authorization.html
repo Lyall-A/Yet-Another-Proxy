@@ -3,8 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Proxy Authorization | {{service.host}}</title>
+    <title>Proxy Authorization</title>
     <script>
+        document.title = `Proxy Authorization | ${location.hostname}`;
+
         function authenticate(event) {
             event.preventDefault();
 

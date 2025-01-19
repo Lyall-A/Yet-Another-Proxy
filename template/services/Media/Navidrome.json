@@ -1,5 +1,5 @@
 {
-    "host": "navidrome.localhost",
+    "hosts": ["navidrome.", "music."],
     "originHost": "192.168.1.1",
     "originPort": 4533
 }
