@@ -1,37 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Proxy Authorization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - {{service.name}}</title>
+    
+    <meta name="description" content="This page requires authentication">
+    <meta property="og:title" content="This page requires authentication">
+    <meta property="og:description" content="This page requires authentication">
+    <meta property="og:type" content="website">
+    <meta name="robots" content="noindex">
+
+    <style>
+        :root {
+            --bg-color: #252525;
+            --primary-color: #b3b3b3;
+            --secondary-color: #ebebeb;
+            --icon-color: #4e4e4e;
+            --label-bg-color: #2c2c2c;
+            --input-bg-color: #303030;
+            --input-hover-bg-color: #353535;
+            --submit-bg-color: #ea4c4c;
+            --submit-hover-bg-color: #c63535;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        a {
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        input {
+            color: var(--secondary-color);
+            font-size: 1.2rem;
+            border: 0;
+            margin: 0;
+            outline: 0;
+            padding: 0;
+        }
+
+        form {
+            display: grid;
+            gap: 0.8rem;
+        }
+        
+        label, input {
+            border-radius: 0.3rem;
+            padding: 1rem;
+        }
+        
+        label {
+            background-color: var(--label-bg-color);
+            padding-left: 1.3rem;
+            padding-right: 1.3rem;
+            border-bottom-right-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        input[type="text"], input[type="password"] {
+            background-color: var(--input-bg-color);
+            border-bottom-left-radius: 0;
+            border-top-left-radius: 0;
+            transition: background-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus, input[type="text"]:hover,
+        input[type="password"]:focus, input[type="password"]:hover {
+            background-color: var(--input-hover-bg-color);
+        }
+        
+        input[type="submit"] {
+            cursor: pointer;
+            background-color: var(--submit-bg-color);
+            color: var(--secondary-color);
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: background-color 0.3s ease;
+        }
+        
+        input[type="submit"]:focus, input[type="submit"]:hover {
+            background-color: var(--submit-hover-bg-color);
+        }
+        
+        footer {
+            display: flex;
+            justify-content: center;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            opacity: 0.8;
+            font-size: small;
+        }
+
+        p {
+            margin-top: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-field {
+            display: flex;
+        }
+
+        .icon {
+            fill: var(--icon-color);
+            height: 1rem;
+            width: 1rem;
+            vertical-align: middle;
+        }
+        
+        .ip {
+            filter: blur(5px);
+            transition: filter 0.3s ease;
+            color: var(--secondary-color);
+        }
+        
+        .ip:hover {
+            filter: none;
+        }
+        
+        .heading, .sub-heading {
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1 class="heading">Authorization</h1>
+        <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
+        
+        <form onsubmit="authorize()">%% service.username ? `
+            <div class="form-field">
+                <label for="username"><svg class="icon"><use xlink:href="#icon-user"></use></svg></label>
+                <input id="username" name="username" type="text" placeholder="Username" autofocus required>
+            </div>
+            ` : "" %%
+            <div class="form-field">
+                <label for="password"><svg class="icon"><use xlink:href="#icon-lock"></use></svg></label>
+                <input id="password" name="password" type="password" placeholder="Password" autofocus required>
+            </div>
+
+            <input type="submit" value="Login">
+        </form>
+        <p>Your IP: <span class="ip">{{connection.clientConnection.address}}<span/></p>
+        <footer><p>Powered by <a href="https://github.com/Lyall-A/Yet-Another-Proxy" target="_blank">Yet-Another-Proxy</a></p></footer>
+    </div>
+
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+        <symbol id="icon-lock" viewBox="0 0 1792 1792"><path d="M640 768h512V576q0-106-75-181t-181-75-181 75-75 181v192zm832 96v576q0 40-28 68t-68 28H416q-40 0-68-28t-28-68V864q0-40 28-68t68-28h32V576q0-184 132-316t316-132 316 132 132 316v192h32q40 0 68 28t28 68z"></path></symbol>
+        <symbol id="icon-user" viewBox="0 0 1792 1792"><path d="M1600 1405q0 120-73 189.5t-194 69.5H459q-121 0-194-69.5T192 1405q0-53 3.5-103.5t14-109T236 1084t43-97.5 62-81 85.5-53.5T538 832q9 0 42 21.5t74.5 48 108 48T896 971t133.5-21.5 108-48 74.5-48 42-21.5q61 0 111.5 20t85.5 53.5 62 81 43 97.5 26.5 108.5 14 109 3.5 103.5zm-320-893q0 159-112.5 271.5T896 896 624.5 783.5 512 512t112.5-271.5T896 128t271.5 112.5T1280 512z"></path></symbol>
+    </svg>
+
     <script>
-        document.title = `Proxy Authorization | ${location.hostname}`;
+        function authorize() {
+            const username = document.getElementById("username");
+            const password = document.getElementById("password");
 
-        function authenticate(event) {
-            event.preventDefault();
-
-            const username = document.getElementById("username").value;
-            const password = document.getElementById("password").value;
-
-            document.cookie = `{{service.usernameCookie}}=${username}; max-age={{cookieAge}}; path=/`;
-            document.cookie = `{{service.passwordCookie}}=${password}; max-age={{cookieAge}}; path=/`;
-
+            if (username) document.cookie = `{{service.usernameCookie}}=${username.value}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
+            document.cookie = `{{service.passwordCookie}}=${password.value}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
+            
             location.reload();
         }
     </script>
-</head>
-
-<body>
-    <h1>Proxy Authorization</h1>
-    <form onsubmit="authenticate(event)">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username">
-
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-
-        <button type="submit">Login</button>
-    </form>
 </body>
 
 </html>

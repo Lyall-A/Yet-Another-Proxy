@@ -6,11 +6,13 @@
     "authorizationPageLocation": "authorization.html",
     "servicesLocation": "services",
     "defaultServiceOptions": {
+        "disallowRobots": true,
         "usernameCookie": "X-Proxy-Username",
         "passwordCookie": "X-Proxy-Password",
-        "cookieAge": 86400,
+        "cookieAge": 604800,
         "authenticationType": "Cookies",
-        "password": "test",
+        "username": "test",
+        "password": "CHANGE ME",
         "whitelist": [
             "::1",
             "192.168.1.0/24",

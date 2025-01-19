@@ -43,7 +43,8 @@ class Proxy extends EventEmitter {
                 connection.emit("client-data", data, http);
 
                 if (http) {
-                    if (connection.state === 0) this.emit("request", http, connection);
+                    // if (connection.state === 0) this.emit("request", http, connection);
+                    this.emit("request", http, connection);
                 
                     if (connection.state === 0) return connection.close();
                     if (connection.state > 0) connection.writeOrigin(http.toBuffer());

@@ -44,6 +44,7 @@ class ProxyConnection extends EventEmitter {
     }
     
     proxy(options = { }) {
+        if (this.state > 0) return;
         this.state = 1;
         this.originOptions = options;
         

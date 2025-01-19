@@ -11,6 +11,7 @@ const services = [];
 
 loadConfig();
 fs.watchFile("./config.json", () => {
+    log(0, "Config updated");
     loadConfig();
 });
 
@@ -21,12 +22,13 @@ fs.watch(config.servicesLocation, () => {
 
 loadAuthorizationPage();
 fs.watchFile("./authorization.html", () => {
+    log(0, "Authorization page updated");
     loadAuthorizationPage();
 });
 
 proxy.on("request", (http, connection) => {
     for (const service of services) {
-        const host = http.getHeader("host");
+        const host = http.getHeader("Host");
         const address = connection.clientConnection.address;
         const serviceName = service.name || service.host;
 
@@ -85,21 +87,28 @@ proxy.on("request", (http, connection) => {
                     return;
                 }
             }
+
+            if (service["disallowRobots"] && http.target === "/robots.txt") {
+                return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
+            }
             
-            log(2, `${address} connecting to ${serviceName}`);
+            log(2, `'${address}' connecting to '${serviceName}'`);
+
+            if (service["redirect"]) return connection.bypass(302, "Found", [["Location", service["redirect"]]]);
+            else if (service["originHost"] && service["originPort"]) {
+                connection.proxy({
+                    host: service["originHost"],
+                    port: service["originPort"]
+                });
+            } else {
+                log(0, `Nothing to do with '${serviceName}'!`);
+            }
             
-            connection.proxy({
-                host: service["originHost"],
-                port: service["originPort"]
-            });
-            
-            connection.on("client-data", (data, http) => log(3, `Data from client (Length: ${data.byteLength})`));
-            connection.on("origin-data", (data, http) => log(3, `Data from origin (Length: ${data.byteLength})`));
             return;
         }
     }
 
-    return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
+    // return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
 });
 
 proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log(0, `Proxy listening at ${proxy.hostname}:${proxy.port}`));
@@ -152,11 +161,20 @@ function loadServices() {
 }
 
 function formatString(string, object = {}) {
-    return string.replace(/\\?{{(.+?)}}/gs, (match, objectGroup) => {
+    return string.replace(/\\?(?:{{(.+?)}}|%%(.*?)%%)/gs, (match, objectGroup, evalGroup) => {
         if (match.startsWith("\\")) return match.slice(1);
 
         if (objectGroup) {
             return objectGroup.split(".").reduce((acc, key) => acc && acc[key], object) ?? "";
+        }
+
+        if (evalGroup) {
+            try {
+                return eval(`${Object.entries(object).map(([key, value]) => `const ${key} = ${JSON.stringify(value)};`).join("\n")}\n\n${evalGroup}`);
+            } catch (err) {
+                console.log(err);
+                return "";
+            }
         }
 
         return match;
