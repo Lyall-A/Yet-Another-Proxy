@@ -63,10 +63,8 @@ proxy.on("request", (http, connection) => {
             // Authentication
             if (service["authentication"]) {
                 let passedAuth = true;
-                const expectedUsername = service["username"];
-                const expectedPassword = service["password"];
-                if (!expectedPassword) {
-                    log(1, `Service '${serviceName}' has authentication enabled but no password set`);
+                if (!service["users"]?.length && !service["password"]) {
+                    log(1, `Service '${serviceName}' has authentication enabled but no users or password set`);
                     return;
                 }
                 
@@ -76,16 +74,20 @@ proxy.on("request", (http, connection) => {
                     if (encodedAuthorization) {
                         const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
                         const [username, password] = decodedAuthorization.split(":");
-                        if (expectedUsername && expectedUsername !== username) passedAuth = false;
-                        if (expectedPassword !== password) passedAuth = false;
+                        if (service["users"]?.length) {
+                            const user = service["users"].find(i => i.username === username);
+                            if (!user || user.password !== password) passedAuth = false;
+                        } else if (service["password"] !== password) passedAuth = false;
                     }
                     if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
                 } else if (service["authenticationType"].toLowerCase() === "cookies") {
                     // Cookie authentication
                     const username = http.cookies[service.usernameCookie];
                     const password = http.cookies[service.passwordCookie];
-                    if (expectedUsername && expectedUsername !== username) passedAuth = false;
-                    if (expectedPassword !== password) passedAuth = false;
+                    if (service["users"]?.length) {
+                        const user = service["users"].find(i => i.username === username);
+                        if (!user || user.password !== password) passedAuth = false;
+                    } else if (service["password"] !== password) passedAuth = false;
                     if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
                 } else {
                     log(1, `Service '${serviceName}' has unknown authentication type '${service.authenticationType}'`);
