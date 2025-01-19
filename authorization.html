@@ -78,6 +78,7 @@
             border-bottom-left-radius: 0;
             border-top-left-radius: 0;
             transition: background-color 0.3s ease;
+            width: 100%;
         }
         
         input[type="text"]:focus, input[type="text"]:hover,
@@ -114,8 +115,14 @@
             margin-bottom: 1.5rem;
         }
 
+        .form-container {
+            width: 350px;
+            margin: 20px;
+        }
+
         .heading, .sub-heading {
             text-align: left;
+            overflow-wrap: break-word;
         }
 
         .form-field {
@@ -142,7 +149,7 @@
     </style>
 </head>
 <body>
-    <div>
+    <div class="form-container">
         <h1 class="heading">Authorization</h1>
         <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
         
@@ -182,5 +189,4 @@
         }
     </script>
 </body>
-
 </html>
