@@ -16,7 +16,7 @@ class ProxyConnection extends EventEmitter {
     originOptions = null;
     originConnectionOptions = null;
     connectTimestamp = Date.now();
-    state = 0; // 0: Not connecting, 1: Connecting, 2: Connected
+    state = 0; // -1: Bypass, 0: Not connecting, 1: Connecting, 2: Connected
 
     close() {
         this.clientConnection.destroy();
@@ -36,6 +36,12 @@ class ProxyConnection extends EventEmitter {
             this.clientConnection.pause();
         }
     }
+
+    bypass(statusCode, statusMessage = "", headers, data = "") {
+        this.state = -1;
+
+        this.clientConnection.end(`HTTP/1.1 ${statusCode} ${statusMessage}\r\n${headers.map(([key, value]) => `${key}: ${value}`).join("\r\n")}\r\n\r\n${data}`);
+    }
     
     proxy(options = { }) {
         this.state = 1;
@@ -51,7 +57,7 @@ class ProxyConnection extends EventEmitter {
         
         if (options.ssl) {
             // With SSL (HTTPS)
-            if ((!options.cert && !options.certFile) || (!options.key && !options.keyFile)) throw new Error("No key or certificate provided for connection");
+            if ((!options.cert && !options.certFile) || (!options.key && !options.keyFile)) throw new Error("No key or certificate provided for origin connection");
             
             if (!originConnectionOptions.cert) originConnectionOptions.cert = options.cert || fs.readFileSync(options.certFile);
             if (!originConnectionOptions.key) originConnectionOptions.key = options.key || fs.readFileSync(options.keyFile);

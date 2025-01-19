@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Proxy Authorization | {{service.host}}</title>
+    <script>
+        function authenticate(event) {
+            event.preventDefault();
+
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            document.cookie = `{{service.usernameCookie}}=${username}; max-age={{cookieAge}}; path=/`;
+            document.cookie = `{{service.passwordCookie}}=${password}; max-age={{cookieAge}}; path=/`;
+
+            location.reload();
+        }
+    </script>
+</head>
+
+<body>
+    <h1>Proxy Authorization</h1>
+    <form onsubmit="authenticate(event)">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username">
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+
+        <button type="submit">Login</button>
+    </form>
+</body>
+
+</html>

@@ -17,6 +17,7 @@ class HTTP {
             
             this.startLine = `${method} ${target} ${protocol}`;
             this.parseHeaders();
+            this.parseCookies();
         } else if (this.isResponse()) {
             // HTTP response
             const responseMatch = this.dataString.match(HTTP.responseRegex);
@@ -31,6 +32,7 @@ class HTTP {
 
             this.startLine = `${protocol} ${statusCode} ${statusMessage}`;
             this.parseHeaders();
+            this.parseCookies();
         } else {
             // Invalid
             throw new Error("Not a valid HTTP request/response");
@@ -59,6 +61,12 @@ class HTTP {
         const headers = Array.from(this.headersString.matchAll(HTTP.headersRegex)).map(([match, key, value]) => ([key, value]));
         this.headers = headers;
         return this.headers;
+    }
+
+    parseCookies() {
+        const cookieHeader = this.getHeader("Cookie");
+        this.cookies = cookieHeader ? Object.fromEntries(cookieHeader.split("; ").map(i => { const [key, value] = i.split("="); return [key, value]; })) : { };
+        return this.cookies;
     }
 
     stringifyHeaders() {

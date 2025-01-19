@@ -17,15 +17,15 @@ class Connection extends EventEmitter {
         this.port = this.remotePort;
 
         this.connection.on("data", data => {
+            let http = null;
             try {
                 // Includes HTTP header, parse it to modify headers
-                const http = new HTTP(data);
-                this.emit("data", data, http);
+                http = new HTTP(data);
             } catch (err) {
                 // Doesn't include HTTP header, just send raw data
                 // console.log(err);
-                this.emit("data", data);
             }
+            this.emit("data", data, http);
         });
         
         this.connection.on("open", () => this.emit("open"));
@@ -45,6 +45,10 @@ class Connection extends EventEmitter {
 
     write(data) {
         return this.connection.write(data);
+    }
+
+    end(data) {
+        this.connection.end(data);
     }
 
     destroy() {
