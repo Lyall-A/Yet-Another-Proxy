@@ -13,6 +13,9 @@
         "authenticationType": "Cookies",
         "username": "username",
         "password": "password",
+        "modifiedRequestHeaders": [
+            ["Host", "{{service.originHost}}:{{service.originPort}}"]
+        ],
         "whitelist": [
             "::1",
             "192.168.1.0/24",

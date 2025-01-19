@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const Proxy = require("../src/Proxy");
+const Proxy = require("./src/Proxy");
 
 const proxy = new Proxy();
 
@@ -32,11 +32,19 @@ proxy.on("request", (http, connection) => {
         const address = connection.clientConnection.address;
         const serviceName = service.name || service.host;
 
+        const formatStringObject = {
+            http,
+            connection,
+            service,
+            config,
+        };
+
         if (service["hosts"].some(i =>
             i === host ||
             (i.startsWith(".") && host.endsWith(i)) ||
             (i.endsWith(".") && host.startsWith(i))
         )) {
+            // Whitelist
             if (service["whitelist"]?.length) {
                 if (!matchAddress(address, service["whitelist"])) {
                     log(1, `Un-whitelisted address '${address}' attempted to connect to '${serviceName}'`);
@@ -44,6 +52,7 @@ proxy.on("request", (http, connection) => {
                 }
             }
             
+            // Blacklist
             if (service["blacklist"]?.length) {
                 if (matchAddress(address, service["blacklist"])) {
                     log(1, `Blacklisted address '${address}' attempted to connect to '${serviceName}'`);
@@ -51,6 +60,7 @@ proxy.on("request", (http, connection) => {
                 }
             }
 
+            // Authentication
             if (service["authentication"]) {
                 let passedAuth = true;
                 const expectedUsername = service["username"];
@@ -76,26 +86,42 @@ proxy.on("request", (http, connection) => {
                     const password = http.cookies[service.passwordCookie];
                     if (expectedUsername && expectedUsername !== username) passedAuth = false;
                     if (expectedPassword !== password) passedAuth = false;
-                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, {
-                        http,
-                        connection,
-                        service,
-                        config,
-                    }));
+                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
                 } else {
                     log(1, `Service '${serviceName}' has unknown authentication type '${service.authenticationType}'`);
                     return;
                 }
             }
+            
+            if (connection.firstRequest) {
+                log(2, `'${address}' connecting to '${serviceName}'`);
+                connection.on("close", () => {
+                    log(2, `'${address}' disconnected from '${serviceName}'`);
+                });
+                connection.on("client-data", (data, http) => {
+                    log(3, `Client data: ${data.byteLength}`);
+                });
+                connection.on("origin-data", (data, http) => {
+                    log(3, `Origin data: ${data.byteLength}`);
+                });
+            }
 
+            // Modify request headers
+            if (service["modifiedRequestHeaders"]) for (const [key, value] of service["modifiedRequestHeaders"]) {
+                http.setHeader(key, formatString(value, formatStringObject));
+            }
+
+            // Disallow robots
             if (service["disallowRobots"] && http.target === "/robots.txt") {
                 return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
             }
-            
-            log(2, `'${address}' connecting to '${serviceName}'`);
 
-            if (service["redirect"]) return connection.bypass(302, "Found", [["Location", service["redirect"]]]);
+            if (service["redirect"]) {
+                // Redirect
+                return connection.bypass(302, "Found", [["Location", service["redirect"]]]);
+            }
             else if (service["originHost"] && service["originPort"]) {
+                // Proxy
                 connection.proxy({
                     host: service["originHost"],
                     port: service["originPort"]
@@ -103,7 +129,7 @@ proxy.on("request", (http, connection) => {
             } else {
                 log(0, `Nothing to do with '${serviceName}'!`);
             }
-            
+
             return;
         }
     }

@@ -17,6 +17,7 @@ class ProxyConnection extends EventEmitter {
     originConnectionOptions = null;
     connectTimestamp = Date.now();
     state = 0; // -1: Bypass, 0: Not connecting, 1: Connecting, 2: Connected
+    firstRequest = true;
 
     close() {
         this.clientConnection.destroy();

@@ -114,6 +114,10 @@
             margin-bottom: 1.5rem;
         }
 
+        .heading, .sub-heading {
+            text-align: left;
+        }
+
         .form-field {
             display: flex;
         }
@@ -135,13 +139,10 @@
             filter: none;
         }
         
-        .heading, .sub-heading {
-            text-align: left;
-        }
     </style>
 </head>
 <body>
-    <div class="form-container">
+    <div>
         <h1 class="heading">Authorization</h1>
         <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
         
@@ -170,7 +171,7 @@
     <script>
         function authorize(event) {
             event.preventDefault();
-            
+
             const username = document.getElementById("username");
             const password = document.getElementById("password");
 
