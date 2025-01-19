@@ -124,8 +124,6 @@ proxy.on("request", (http, connection) => {
                         http.setHeader(key, formatString(value, formatStringObject));
                     }
                 }
-                console.log("Original:", originalHeaders);
-                console.log("Modified:", http.headers);
             }
 
             // Disallow robots
