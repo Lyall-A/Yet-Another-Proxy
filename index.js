@@ -47,7 +47,7 @@ proxy.on("request", (http, connection) => {
             // Whitelist
             if (service["whitelist"]?.length) {
                 if (!matchAddress(address, service["whitelist"])) {
-                    log(1, `Un-whitelisted address '${address}' attempted to connect to '${serviceName}'`);
+                    log(1, `Un-whitelisted address '${address}' attempted to connect to '${host}' (${serviceName})`);
                     return;
                 }
             }
@@ -55,7 +55,7 @@ proxy.on("request", (http, connection) => {
             // Blacklist
             if (service["blacklist"]?.length) {
                 if (matchAddress(address, service["blacklist"])) {
-                    log(1, `Blacklisted address '${address}' attempted to connect to '${serviceName}'`);
+                    log(1, `Blacklisted address '${address}' attempted to connect to '${host}' (${serviceName})`);
                     return;
                 }
             }
@@ -96,9 +96,9 @@ proxy.on("request", (http, connection) => {
             }
 
             if (connection.firstRequest) {
-                log(2, `'${address}' connecting to '${serviceName}'`);
+                log(2, `'${address}' connecting to '${host}' (${serviceName})`);
                 connection.on("close", () => {
-                    log(2, `'${address}' disconnected from '${serviceName}'`);
+                    log(2, `'${address}' disconnected from '${host}' (${serviceName})`);
                 });
                 connection.on("client-data", (data, http) => {
                     log(3, `Client data: ${data.byteLength}`);
