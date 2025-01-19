@@ -11,8 +11,8 @@
         "passwordCookie": "X-Proxy-Password",
         "cookieAge": 604800,
         "authenticationType": "Cookies",
-        "username": "test",
-        "password": "CHANGE ME",
+        "username": "username",
+        "password": "password",
         "whitelist": [
             "::1",
             "192.168.1.0/24",

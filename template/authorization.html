@@ -145,7 +145,7 @@
         <h1 class="heading">Authorization</h1>
         <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
         
-        <form onsubmit="authorize()">%% service.username ? `
+        <form onsubmit="authorize(event)">%% service.username ? `
             <div class="form-field">
                 <label for="username"><svg class="icon"><use xlink:href="#icon-user"></use></svg></label>
                 <input id="username" name="username" type="text" placeholder="Username" autofocus required>
@@ -168,7 +168,9 @@
     </svg>
 
     <script>
-        function authorize() {
+        function authorize(event) {
+            event.preventDefault();
+            
             const username = document.getElementById("username");
             const password = document.getElementById("password");
 
