@@ -29,6 +29,10 @@ fs.watchFile("./authorization.html", () => {
 proxy.on("request", (http, connection) => {
     const host = http.getHeader("Host");
     const address = connection.clientConnection.address;
+    const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
+    const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
+
+    if (http.protocol !== "HTTP/1.1") return;
     for (const service of services) {
         const serviceName = service.name || service.host;
 
@@ -47,7 +51,7 @@ proxy.on("request", (http, connection) => {
             // Whitelist
             if (service["whitelist"]?.length) {
                 if (!matchAddress(address, service["whitelist"])) {
-                    log(1, `Un-whitelisted address '${address}' attempted to connect to '${host}' (${serviceName})`);
+                    log(1, `Un-whitelisted address '${formattedAddress}' attempted to connect to '${host}' (${serviceName})`);
                     return;
                 }
             }
@@ -55,7 +59,7 @@ proxy.on("request", (http, connection) => {
             // Blacklist
             if (service["blacklist"]?.length) {
                 if (matchAddress(address, service["blacklist"])) {
-                    log(1, `Blacklisted address '${address}' attempted to connect to '${host}' (${serviceName})`);
+                    log(1, `Blacklisted address '${formattedAddress}' attempted to connect to '${host}' (${serviceName})`);
                     return;
                 }
             }
@@ -96,9 +100,9 @@ proxy.on("request", (http, connection) => {
             }
 
             if (connection.firstRequest) {
-                log(2, `'${address}' connecting to '${host}' (${serviceName})`);
+                log(2, `'${formattedAddress}' connecting to '${host}' (${serviceName})`);
                 connection.on("close", () => {
-                    log(2, `'${address}' disconnected from '${host}' (${serviceName})`);
+                    log(2, `'${formattedAddress}' disconnected from '${host}' (${serviceName})`);
                 });
                 connection.on("client-data", (data, http) => {
                     log(3, `Client data: ${data.byteLength}`);
@@ -150,7 +154,7 @@ proxy.on("request", (http, connection) => {
         }
     }
 
-    log(2, `'${address}' went to unknown host '${host}'`);
+    log(2, `'${formattedAddress}' went to unknown host '${host}'`);
     // return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
 });
 

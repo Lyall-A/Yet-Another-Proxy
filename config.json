@@ -5,6 +5,10 @@
     "hostname": "0.0.0.0",
     "authorizationPageLocation": "authorization.html",
     "servicesLocation": "services",
+    "realIPHeaders": [
+        "X-Real-IP",
+        "CF-Connecting-IP"
+    ],
     "defaultServiceOptions": {
         "disallowRobots": true,
         "usernameCookie": "X-Proxy-Username",
