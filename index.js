@@ -35,6 +35,7 @@ proxy.on("request", (http, connection) => {
     if (http.protocol !== "HTTP/1.1") return;
     for (const service of services) {
         const serviceName = service.name || service.host;
+        const formattedServiceName = `${host} (${serviceName})`;
 
         const formatStringObject = {
             http,
@@ -51,7 +52,7 @@ proxy.on("request", (http, connection) => {
             // Whitelist
             if (service["whitelist"]?.length) {
                 if (!matchAddress(address, service["whitelist"])) {
-                    log(1, `Un-whitelisted address '${formattedAddress}' attempted to connect to '${host}' (${serviceName})`);
+                    log(1, `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
@@ -59,7 +60,7 @@ proxy.on("request", (http, connection) => {
             // Blacklist
             if (service["blacklist"]?.length) {
                 if (matchAddress(address, service["blacklist"])) {
-                    log(1, `Blacklisted address '${formattedAddress}' attempted to connect to '${host}' (${serviceName})`);
+                    log(1, `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
@@ -100,9 +101,9 @@ proxy.on("request", (http, connection) => {
             }
 
             if (connection.firstRequest) {
-                log(2, `'${formattedAddress}' connecting to '${host}' (${serviceName})`);
+                log(2, `'${formattedAddress}' connecting to '${formattedServiceName}'`);
                 connection.on("close", () => {
-                    log(2, `'${formattedAddress}' disconnected from '${host}' (${serviceName})`);
+                    log(2, `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
                 });
                 connection.on("client-data", (data, http) => {
                     log(3, `Client data: ${data.byteLength}`);
