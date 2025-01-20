@@ -14,7 +14,7 @@
         "usernameCookie": "X-Proxy-Username",
         "passwordCookie": "X-Proxy-Password",
         "cookieAge": 604800,
-        "authenticationType": "Cookies",
+        "authenticationType": "cookies",
         "users": [],
         "password": "password",
         "modifiedRequestHeaders": [
