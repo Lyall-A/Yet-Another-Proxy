@@ -15,10 +15,17 @@
         "passwordCookie": "X-Proxy-Password",
         "cookieAge": 604800,
         "authenticationType": "Cookies",
-        "username": "username",
+        "users": [],
         "password": "password",
         "modifiedRequestHeaders": [
             ["Host", "{{service.originHost}}:{{service.originPort}}"]
+        ],
+        "authenticationBypass": [
+            "::1",
+            "127.0.0.1",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
         ],
         "whitelist": [
             "::1",

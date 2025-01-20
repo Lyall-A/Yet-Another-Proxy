@@ -33,6 +33,7 @@ proxy.on("request", (http, connection) => {
     const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
 
     if (http.protocol !== "HTTP/1.1") return;
+
     for (const service of services) {
         const serviceName = service.name || service.host;
         const formattedServiceName = `${host} (${serviceName})`;
@@ -44,60 +45,58 @@ proxy.on("request", (http, connection) => {
             config,
         };
 
-        if (service["hosts"].some(i =>
+        if (service.hosts.some(i =>
             i === host ||
             (i.startsWith(".") && host.endsWith(i)) ||
             (i.endsWith(".") && host.startsWith(i))
         )) {
             // Whitelist
-            if (service["whitelist"]?.length) {
-                if (!matchAddress(address, service["whitelist"])) {
+            if (service.whitelistedAddresses?.length) {
+                if (!matchAddress(address, service.whitelistedAddresses)) {
                     log(1, `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
 
             // Blacklist
-            if (service["blacklist"]?.length) {
-                if (matchAddress(address, service["blacklist"])) {
+            if (service.blacklistedAddresses?.length) {
+                if (matchAddress(address, service.blacklistedAddresses)) {
                     log(1, `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
 
             // Authentication
-            if (service["authentication"]) {
-                let passedAuth = true;
-                if (!service["users"]?.length && !service["password"]) {
-                    log(1, `Service '${serviceName}' has authentication enabled but no users or password set`);
-                    return;
+            if (service.authentication) {
+                let passedAuth = false;
+                const bypassedAuth = service.authenticationBypassedAddresses?.length ? (matchAddress(address, service.authenticationBypassedAddresses) || (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses)) ? true : false) : false;
+
+                if (!bypassedAuth) {
+                    if (service.authenticationType === "basic") {
+                        // Basic authentication
+                        const encodedAuthorization = http.getHeader("Authorization")?.match(/Basic (.+)/);
+                        if (encodedAuthorization) {
+                            const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
+                            const [username, password] = decodedAuthorization.split(":");
+                            if (service.users?.length) {
+                                const user = service.users.find(i => i.username === username);
+                                if (user && user.password === password) passedAuth = true;
+                            } else if (service.password === password) passedAuth = true;
+                        }
+                        if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
+                    } else if (service.authenticationType === "cookies") {
+                        // Cookie authentication
+                        const username = http.cookies[service.usernameCookie];
+                        const password = http.cookies[service.passwordCookie];
+                        if (service.users?.length) {
+                            const user = service.users.find(i => i.username === username);
+                            if (user && user.password === password) passedAuth = true;
+                        } else if (service.password === password) passedAuth = true;
+                        if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
+                    }
                 }
 
-                if (service["authenticationType"].toLowerCase() === "basic") {
-                    // Basic authentication
-                    const encodedAuthorization = http.getHeader("Authorization")?.match(/Basic (.+)/);
-                    if (encodedAuthorization) {
-                        const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
-                        const [username, password] = decodedAuthorization.split(":");
-                        if (service["users"]?.length) {
-                            const user = service["users"].find(i => i.username === username);
-                            if (!user || user.password !== password) passedAuth = false;
-                        } else if (service["password"] !== password) passedAuth = false;
-                    }
-                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
-                } else if (service["authenticationType"].toLowerCase() === "cookies") {
-                    // Cookie authentication
-                    const username = http.cookies[service.usernameCookie];
-                    const password = http.cookies[service.passwordCookie];
-                    if (service["users"]?.length) {
-                        const user = service["users"].find(i => i.username === username);
-                        if (!user || user.password !== password) passedAuth = false;
-                    } else if (service["password"] !== password) passedAuth = false;
-                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
-                } else {
-                    log(1, `Service '${serviceName}' has unknown authentication type '${service.authenticationType}'`);
-                    return;
-                }
+                if (!passedAuth && !bypassedAuth) return;
             }
 
             if (connection.firstRequest) {
@@ -114,9 +113,9 @@ proxy.on("request", (http, connection) => {
             }
 
             // Modify request headers
-            if (service["modifiedRequestHeaders"]) {
+            if (service.modifiedRequestHeaders) {
                 const originalHeaders = http.headers.map(([key, value]) => ([key, value]));
-                for (const [key, value] of service["modifiedRequestHeaders"]) {
+                for (const [key, value] of service.modifiedRequestHeaders) {
                     if (value === null) {
                         // Delete header
                         http.removeHeader(key);
@@ -132,23 +131,21 @@ proxy.on("request", (http, connection) => {
             }
 
             // Disallow robots
-            if (service["disallowRobots"] && http.target === "/robots.txt") {
+            if (service.disallowRobots && http.target === "/robots.txt") {
                 return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
             }
 
-            if (service["redirect"]) {
+            if (service.redirect) {
                 // Redirect
-                return connection.bypass(302, "Found", [["Location", service["redirect"]]]);
+                return connection.bypass(302, "Found", [["Location", service.redirect]]);
             }
-            else if (service["originHost"] && service["originPort"]) {
+            else if (service.originHost && service.originPort) {
                 // Proxy
                 connection.proxy({
-                    host: service["originHost"],
-                    port: service["originPort"],
-                    ssl: service["ssl"]
+                    host: service.originHost,
+                    port: service.originPort,
+                    ssl: service.ssl
                 });
-            } else {
-                log(0, `Nothing to do with '${serviceName}'!`);
             }
 
             return;
@@ -189,17 +186,26 @@ function loadServices() {
 
     for (const serviceFile of serviceFiles) {
         try {
-            const service = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
-            services.push({
-                name: service.name || path.basename(serviceFile, path.extname(serviceFile)),
+            const originalService = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
+            const service = {
+                name: originalService.name || path.basename(serviceFile, path.extname(serviceFile)),
                 ...(config.defaultServiceOptions || {}),
-                ...service,
+                ...originalService,
 
                 modifiedRequestHeaders: [
                     ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
-                    ...(service.modifiedRequestHeaders || [])
+                    ...(originalService.modifiedRequestHeaders || [])
                 ]
-            });
+            };
+
+            // Check if service is valid
+            if (service.authentication) {
+                if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
+                if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
+            }
+            if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
+            
+            services.push(service);
             log(0, `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
         } catch (err) {
             log(0, `Failed to load service '${serviceFile}', ${err}`);
