@@ -101,7 +101,6 @@ proxy.on("request", (http, connection) => {
                                 if (usernameCookie) {
                                     const username = decodeURIComponent(usernameCookie);
                                     const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                                    console.log(user)
                                     if (user && user.password === password) {
                                         passedAuth = true;
                                         authedUsername = user.username;
