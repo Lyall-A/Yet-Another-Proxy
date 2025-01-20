@@ -35,14 +35,17 @@ proxy.on("request", (http, connection) => {
     if (http.protocol !== "HTTP/1.1") return;
 
     for (const service of services) {
-        const serviceName = service.name || service.host;
-        const formattedServiceName = `${host} (${serviceName})`;
+        const formattedServiceName = `${host} (${service.name || "Unknown service"})`;
 
         const formatStringObject = {
             http,
             connection,
             service,
             config,
+
+            host,
+            address,
+            realAddress
         };
 
         if (service.hosts.some(i =>
