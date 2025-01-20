@@ -1,7 +1,6 @@
 {
     "port": 80,
-    "logLevel": 1,
-    "logLevels": ["INFO", "WARN", "LOG", "DEBUG"],
+    "logLevels": ["INFO", "ERROR", "WARN"],
     "hostname": "0.0.0.0",
     "authorizationPageLocation": "authorization.html",
     "servicesLocation": "services",
@@ -11,8 +10,8 @@
     ],
     "defaultServiceOptions": {
         "disallowRobots": true,
-        "usernameCookie": "X-Proxy-Username",
-        "passwordCookie": "X-Proxy-Password",
+        "usernameCookie": "YAP-Username",
+        "passwordCookie": "YAP-Password",
         "cookieAge": 604800,
         "authenticationType": "cookies",
         "users": [],

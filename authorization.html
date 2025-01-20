@@ -153,7 +153,7 @@
         <h1 class="heading">Authorization</h1>
         <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
         
-        <form onsubmit="authorize(event)">%% service.users?.length ? `
+        <form onsubmit="authenticate(event)">%% service.users?.length ? `
             <div class="form-field">
                 <label for="username"><svg class="icon"><use xlink:href="#icon-user"></use></svg></label>
                 <input id="username" name="username" type="text" placeholder="Username" autofocus required>
@@ -176,14 +176,14 @@
     </svg>
 
     <script>
-        function authorize(event) {
-            event.preventDefault();
+        function authenticate(event) {
+            event?.preventDefault();
 
             const username = document.getElementById("username");
             const password = document.getElementById("password");
 
-            if (username) document.cookie = `{{service.usernameCookie}}=${username.value}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
-            document.cookie = `{{service.passwordCookie}}=${password.value}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
+            if (username) document.cookie = `{{service.usernameCookie}}=${encodeURIComponent(username.value)}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
+            document.cookie = `{{service.passwordCookie}}=${encodeURIComponent(password.value)}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
             
             location.reload();
         }

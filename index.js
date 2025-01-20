@@ -9,7 +9,7 @@ const services = [];
 
 loadConfig();
 fs.watchFile("./config.json", () => {
-    log(0, "Config updated");
+    log("INFO", "Config updated");
     loadConfig();
 });
 
@@ -20,7 +20,7 @@ fs.watch(config.servicesLocation, () => {
 
 loadAuthorizationPage();
 fs.watchFile("./authorization.html", () => {
-    log(0, "Authorization page updated");
+    log("INFO", "Authorization page updated");
     loadAuthorizationPage();
 });
 
@@ -56,7 +56,7 @@ proxy.on("request", (http, connection) => {
             // Whitelist
             if (service.whitelistedAddresses?.length) {
                 if (!matchAddress(address, service.whitelistedAddresses)) {
-                    log(1, `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
+                    log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
@@ -64,7 +64,7 @@ proxy.on("request", (http, connection) => {
             // Blacklist
             if (service.blacklistedAddresses?.length) {
                 if (matchAddress(address, service.blacklistedAddresses)) {
-                    log(1, `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
+                    log("WARN", `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                     return;
                 }
             }
@@ -72,6 +72,7 @@ proxy.on("request", (http, connection) => {
             // Authentication
             if (service.authentication) {
                 let passedAuth = false;
+                let authedUsername = null;
                 const bypassedAuth = service.authenticationBypassedAddresses?.length ? (matchAddress(address, service.authenticationBypassedAddresses) || (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses)) ? true : false) : false;
 
                 if (!bypassedAuth) {
@@ -82,39 +83,58 @@ proxy.on("request", (http, connection) => {
                             const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
                             const [username, password] = decodedAuthorization.split(":");
                             if (service.users?.length) {
-                                const user = service.users.find(i => i.username === username);
-                                if (user && user.password === password) passedAuth = true;
+                                const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
+                                if (user && user.password === password) {
+                                    passedAuth = true;
+                                    authedUsername = user.username;
+                                }
                             } else if (service.password === password) passedAuth = true;
                         }
                         if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
                     } else if (service.authenticationType === "cookies") {
                         // Cookie authentication
-                        const username = http.cookies[service.usernameCookie];
-                        const password = http.cookies[service.passwordCookie];
-                        if (service.users?.length) {
-                            const user = service.users.find(i => i.username === username);
-                            if (user && user.password === password) passedAuth = true;
-                        } else if (service.password === password) passedAuth = true;
+                        const usernameCookie = http.cookies[service.usernameCookie];
+                        const passwordCookie = http.cookies[service.passwordCookie];
+                        if (passwordCookie) {
+                            const password = decodeURIComponent(passwordCookie);
+                            if (service.users?.length) {
+                                if (usernameCookie) {
+                                    const username = decodeURIComponent(usernameCookie);
+                                    const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
+                                    console.log(user)
+                                    if (user && user.password === password) {
+                                        passedAuth = true;
+                                        authedUsername = user.username;
+                                    }
+                                }
+                            } else if (service.password === password) passedAuth = true;
+                        }
                         if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
                     }
                 }
 
                 if (!passedAuth && !bypassedAuth) return; else {
-                    if (passedAuth) log(2, `'${formattedAddress}' authenticated for '${formattedServiceName}'`);
-                    if (bypassedAuth) log(1, `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
+                    if (passedAuth) log("LOG", `'${formattedAddress}' authenticated${authedUsername ? ` as '${authedUsername}'` : ""} for '${formattedServiceName}'`);
+                    if (bypassedAuth) log("WARN", `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
                 }
             }
 
             if (connection.firstRequest) {
-                log(2, `'${formattedAddress}' connecting to '${formattedServiceName}'`);
+                log("LOG", `'${formattedAddress}' connecting to '${formattedServiceName}'`);
                 connection.on("close", () => {
-                    log(2, `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
+                    log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
+                });
+                connection.on("client-error", err => {
+                    log("ERROR", "Client error:", err);
+                });
+                connection.on("origin-error", err => {
+                    log("ERROR", "Origin error:", err);
                 });
                 connection.on("client-data", (data, http) => {
-                    log(3, `Client data: ${data.byteLength}`);
+                    log("DEBUG", `Client data: ${data.byteLength}`);
                 });
                 connection.on("origin-data", (data, http) => {
-                    log(3, `Origin data: ${data.byteLength}`);
+                    log("DEBUG", `Origin data: ${data.byteLength}`);
                 });
             }
 
@@ -158,11 +178,11 @@ proxy.on("request", (http, connection) => {
         }
     }
 
-    log(2, `'${formattedAddress}' went to unknown host '${host}'`);
+    log("LOG", `'${formattedAddress}' went to unknown host '${host}'`);
     // return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
 });
 
-proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log(0, `Proxy listening at ${proxy.hostname}:${proxy.port}`));
+proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
 function loadConfig() {
     config = JSON.parse(fs.readFileSync("./config.json", "utf-8"))
@@ -212,9 +232,9 @@ function loadServices() {
             if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
             
             services.push(service);
-            log(0, `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
+            log("INFO", `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
         } catch (err) {
-            log(0, `Failed to load service '${serviceFile}', ${err}`);
+            log("INFO", `Failed to load service '${serviceFile}', ${err}`);
         }
 
         // (function parseServiceFile(serviceFilePath) {
@@ -237,7 +257,6 @@ function formatString(string, object = {}) {
             try {
                 return eval(`${Object.entries(object).map(([key, value]) => `const ${key} = ${JSON.stringify(value)};`).join("\n")}\n\n${evalGroup}`);
             } catch (err) {
-                console.log(err);
                 return "";
             }
         }
@@ -265,6 +284,6 @@ function matchAddress(address, matches) {
 }
 
 function log(level, ...msgs) {
-    if (config.logLevel < level) return;
-    console.log(`[${config.logLevels[level]}]`, ...msgs);
+    if (!config.logLevels?.includes(level)) return;
+    console.log(`[${level}]`, ...msgs);
 }

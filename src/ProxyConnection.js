@@ -66,6 +66,7 @@ class ProxyConnection extends EventEmitter {
         }
 
         this.originConnection.on("open", () => {
+            this.emit("origin-open");
             this.state = 2;
         });
 
@@ -80,11 +81,13 @@ class ProxyConnection extends EventEmitter {
         });
 
         this.originConnection.on("close", () => {
+            this.emit("origin-close");
             this.close();
         });
 
         this.originConnection.on("error", err => {
             // console.log(err);
+            this.emit("origin-error", err);
             this.close();
         });
 

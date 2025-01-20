@@ -56,11 +56,13 @@ class Proxy extends EventEmitter {
             });
 
             clientConnection.on("close", () => {
+                connection.emit("client-close");
                 connection.close();
             });
 
             clientConnection.on("error", err => {
                 // console.log(err);
+                connection.emit("client-error", err);
                 connection.close();
             });
 
