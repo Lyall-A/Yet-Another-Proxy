@@ -3,8 +3,6 @@ const path = require("path");
 
 const Proxy = require("./src/Proxy");
 
-const proxy = new Proxy();
-
 let config;
 let authHtml;
 const services = [];
@@ -25,6 +23,8 @@ fs.watchFile("./authorization.html", () => {
     log(0, "Authorization page updated");
     loadAuthorizationPage();
 });
+
+const proxy = new Proxy();
 
 proxy.on("request", (http, connection) => {
     const host = http.getHeader("Host");
