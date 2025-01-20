@@ -96,7 +96,10 @@ proxy.on("request", (http, connection) => {
                     }
                 }
 
-                if (!passedAuth && !bypassedAuth) return;
+                if (!passedAuth && !bypassedAuth) return; else {
+                    if (passedAuth) log(1, `'${formattedAddress}' authenticated for '${formattedServiceName}'`);
+                    if (bypassedAuth) log(1, `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
+                }
             }
 
             if (connection.firstRequest) {
