@@ -9,9 +9,9 @@ class HTTP {
             if (!requestMatch) throw new Error("Malformed HTTP request");
             const [match, method, target, protocol, headersString] = requestMatch;
 
-            this.method = method;
-            this.target = target;
-            this.protocol = protocol;
+            this.method = method; // GET
+            this.target = target; // /
+            this.protocol = protocol; // HTTP/1.1
             this.headersString = headersString;
             this.rawData = data.subarray(data.indexOf(HTTP.delimiter) + HTTP.delimiter.length);
             
@@ -24,9 +24,9 @@ class HTTP {
             if (!responseMatch) throw new Error("Malformed HTTP response");
             const [match, protocol, statusCode, statusMessage, headersString] = responseMatch;
 
-            this.protocol = protocol;
-            this.statusCode = statusCode;
-            this.statusMessage = statusMessage;
+            this.protocol = protocol; // HTTP/1.1
+            this.statusCode = statusCode; // 200
+            this.statusMessage = statusMessage; // OK
             this.headersString = headersString;
             this.rawData = data.subarray(data.indexOf(HTTP.delimiter) + HTTP.delimiter.length);
 

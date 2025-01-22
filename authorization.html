@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - {{service.name}}</title>
     
-    <meta name="description" content="This page requires authentication">
-    <meta property="og:title" content="This page requires authentication">
-    <meta property="og:description" content="This page requires authentication">
+    <meta name="description" content="{{service.name}} requires authentication">
+    <meta property="og:title" content="{{service.name}} requires authentication">
+    <meta property="og:description" content="{{service.name}} requires authentication">
     <meta property="og:type" content="website">
     <meta name="robots" content="noindex">
 
@@ -151,7 +151,7 @@
 <body>
     <div class="form-container">
         <h1 class="heading">Authorization</h1>
-        <h3 class="sub-heading"><a>{{service.name}}</a> is password protected</h3>
+        <h3 class="sub-heading"><a>{{service.name}}</a> requires authentication</h3>
         
         <form onsubmit="authenticate(event)">%% service.users?.length ? `
             <div class="form-field">

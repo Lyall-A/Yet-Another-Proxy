@@ -8,20 +8,53 @@ let authHtml;
 const services = [];
 
 loadConfig();
-fs.watchFile("./config.json", () => {
-    log("INFO", "Config updated");
-    loadConfig();
+fs.watch("./config.json", () => {
+    log("INFO", "Reloading config");
+    try {
+        loadConfig();
+    } catch (err) {
+        log("ERROR", "Failed to reload config,", err);
+    }
 });
 
 loadServices();
-fs.watch(config.servicesLocation, () => {
-    loadServices();
+fs.watch(config.servicesLocation, { recursive: true }, (event, filename) => {
+    if (path.extname(filename) !== ".json") return; // File is not a service
+    if (filename.startsWith("_")) return; // File starts with "_", disable
+
+    const servicePath = path.resolve(config.servicesLocation, filename);
+
+    if (event === "change") {
+        // "change" can mean the service was modified
+        log("INFO", `Reloading service file '${filename}'`);
+        try { loadService(servicePath); } catch (err) {
+            log("ERROR", `Failed to reload service file '${filename}',`, err);
+        }
+    } else if (event === "rename") {
+        // "rename" can mean the service was deleted or created
+        const serviceIndex = services.findIndex(i => i._path === servicePath);
+        if (serviceIndex >= 0) {
+            // Service was deleted
+            log("INFO", `Removing service file '${filename}'`);
+            services.splice(serviceIndex, 1);
+        } else {
+            // Service was created
+            log("INFO", `Loading service file '${filename}'`);
+            try { loadService(servicePath); } catch (err) {
+                log("ERROR", `Failed to load service file '${filename}',`, err);
+            }
+        }
+    }
 });
 
 loadAuthorizationPage();
-fs.watchFile("./authorization.html", () => {
-    log("INFO", "Authorization page updated");
-    loadAuthorizationPage();
+fs.watch("./authorization.html", () => {
+    log("INFO", "Reloading authorization page");
+    try {
+        loadAuthorizationPage();
+    } catch (err) {
+        log("ERROR", "Failed to reload authorization page,", err);
+    }
 });
 
 const proxy = new Proxy();
@@ -124,10 +157,10 @@ proxy.on("request", (http, connection) => {
                     log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
                 });
                 connection.on("client-error", err => {
-                    log("ERROR", "Client error:", err);
+                    log("ERROR", "Client error,", err);
                 });
                 connection.on("origin-error", err => {
-                    log("ERROR", "Origin error:", err);
+                    log("ERROR", "Origin error,", err);
                 });
                 connection.on("client-data", (data, http) => {
                     log("DEBUG", `Client data: ${data.byteLength}`);
@@ -162,7 +195,7 @@ proxy.on("request", (http, connection) => {
 
             if (service.redirect) {
                 // Redirect
-                return connection.bypass(302, "Found", [["Location", service.redirect]]);
+                return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
             }
             else if (service.originHost && service.originPort) {
                 // Proxy
@@ -192,7 +225,6 @@ function loadAuthorizationPage() {
 }
 
 function loadServices() {
-    services.splice(0, services.length);
     const serviceFiles = (function getServiceFiles(dirPath) {
         const serviceFiles = [];
         const dir = fs.readdirSync(dirPath);
@@ -201,8 +233,8 @@ function loadServices() {
             if (fs.lstatSync(fullPath).isDirectory()) {
                 serviceFiles.push(...getServiceFiles(fullPath));
             } else {
-                // if (path.extname(filePath) !== ".service") continue;
-                if (path.extname(filePath) !== ".json") continue;
+                if (path.extname(filePath) !== ".json") continue; // File is not a service
+                if (filePath.startsWith("_")) continue; // File starts with "_", disable
                 serviceFiles.push(fullPath);
             }
         }
@@ -211,37 +243,46 @@ function loadServices() {
 
     for (const serviceFile of serviceFiles) {
         try {
-            const originalService = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
-            const service = {
-                name: originalService.name || path.basename(serviceFile, path.extname(serviceFile)),
-                ...(config.defaultServiceOptions || {}),
-                ...originalService,
-
-                modifiedRequestHeaders: [
-                    ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
-                    ...(originalService.modifiedRequestHeaders || [])
-                ]
-            };
-
-            // Check if service is valid
-            if (service.authentication) {
-                if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
-                if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
-            }
-            if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
-            
-            services.push(service);
-            log("INFO", `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
+            loadService(serviceFile);
         } catch (err) {
-            log("INFO", `Failed to load service '${serviceFile}', ${err}`);
+            log("INFO", `Failed to load service file '${serviceFile}', ${err}`);
         }
-
-        // (function parseServiceFile(serviceFilePath) {
-        //     const serviceFile = fs.readFileSync(serviceFilePath, "utf-8");
-        //     const service = Object.fromEntries(Array.from(serviceFile.matchAll(/([a-zA-Z0-9_]+)\s*=\s*(.*)/g)).map(([match, key, value]) => ([ key, value ])));
-        //     services.push(service);
-        // })(serviceFile)
     }
+
+    log("INFO", `Loaded ${services.length} service${services.length > 1 ? "s" : ""}`);
+}
+
+function loadService(serviceFile) {
+    const oldServiceIndex = services.findIndex(i => i._path === serviceFile);
+    if (oldServiceIndex >= 0) services.splice(oldServiceIndex, 1);
+
+    // Parse service
+    const originalService = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
+
+    // Create service object
+    const service = {
+        _path: serviceFile,
+        
+        name: originalService.name || path.basename(serviceFile, path.extname(serviceFile)),
+
+        ...(config.defaultServiceOptions || { }),
+        ...originalService
+    };
+    if (service.modifiedRequestHeaders) service.modifiedRequestHeaders = [
+        ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
+        ...(originalService.modifiedRequestHeaders || [])
+    ];
+
+    // Check if service is valid
+    if (service.authentication) {
+        if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
+        if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
+    }
+    if (service.originPort && (service.originPort < 0 || service.originPort > 65535)) throw new Error("Invalid origin port");
+    if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
+
+    services.push(service);
+    // log("INFO", `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
 }
 
 function formatString(string, object = {}) {
