@@ -38,7 +38,7 @@ class ProxyConnection extends EventEmitter {
         }
     }
 
-    bypass(statusCode, statusMessage = "", headers, data = "") {
+    bypass(statusCode, statusMessage = "", headers = [], data = "") {
         this.state = -1;
 
         this.clientConnection.end(`HTTP/1.1 ${statusCode} ${statusMessage}\r\n${headers.map(([key, value]) => `${key}: ${value}`).join("\r\n")}\r\n\r\n${data}`);

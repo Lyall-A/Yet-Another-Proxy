@@ -2,7 +2,12 @@
     "port": 80,
     "logLevels": ["INFO", "ERROR", "WARN"],
     "hostname": "0.0.0.0",
-    "authorizationPageLocation": "authorization.html",
+    "pagesLocation": "pages",
+    "pageLocations": {
+        "authentication": "authentication.html",
+        "unknownHost": "unknown-host.html",
+        "bypassTest": "bypass-test.html"
+    },
     "servicesLocation": "services",
     "realIPHeaders": [
         "X-Real-IP",

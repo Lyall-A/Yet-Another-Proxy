@@ -14,4 +14,3 @@ A HTTP proxy based on the `Host` header (eg: `plex.example.org` > `localhost:324
 
 ## TODO's
 * Custom service file (not JSON)
-* URL bypass

@@ -3,65 +3,21 @@ const path = require("path");
 
 const formatString = require("./utils/formatString");
 const matchAddress = require("./utils/matchAddress");
+const matchUrl = require("./utils/matchUrl");
+const DirectoryMonitor = require("./utils/DirectoryMonitor");
 
 const Proxy = require("./src/Proxy");
 
-let config;
-let authHtml;
-const services = [];
-
 // Load and watch config
-loadConfig();
+let config = JSON.parse(fs.readFileSync("./config.json", "utf-8"));
 fs.watch("./config.json", () => {
     log("INFO", "Reloading config");
-    try {
-        loadConfig();
-    } catch (err) {
-        log("ERROR", "Failed to reload config,", err);
-    }
+    try { config = JSON.parse(fs.readFileSync("./config.json", "utf-8")); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
-
 // Load and watch services
-loadServices();
-fs.watch(config.servicesLocation, { recursive: true }, (event, filename) => {
-    if (path.extname(filename) !== ".json") return; // File is not a service
-    if (filename.startsWith("_")) return; // File starts with "_", disable
-
-    const servicePath = path.resolve(config.servicesLocation, filename);
-
-    if (event === "change") {
-        // "change" can mean the service was modified
-        log("INFO", `Reloading service file '${filename}'`);
-        try { loadService(servicePath); } catch (err) {
-            log("ERROR", `Failed to reload service file '${filename}',`, err);
-        }
-    } else if (event === "rename") {
-        // "rename" can mean the service was deleted or created
-        const serviceIndex = services.findIndex(i => i._path === servicePath);
-        if (serviceIndex >= 0) {
-            // Service was deleted
-            log("INFO", `Removing service file '${filename}'`);
-            services.splice(serviceIndex, 1);
-        } else {
-            // Service was created
-            log("INFO", `Loading service file '${filename}'`);
-            try { loadService(servicePath); } catch (err) {
-                log("ERROR", `Failed to load service file '${filename}',`, err);
-            }
-        }
-    }
-});
-
-// Load and watch authorization page
-loadAuthorizationPage();
-fs.watch("./authorization.html", () => {
-    log("INFO", "Reloading authorization page");
-    try {
-        loadAuthorizationPage();
-    } catch (err) {
-        log("ERROR", "Failed to reload authorization page,", err);
-    }
-});
+const services = initServices();
+// Load and watch pages
+const pages = initPages();
 
 // Create proxy
 const proxy = new Proxy();
@@ -73,21 +29,21 @@ proxy.on("request", (http, connection) => {
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
     const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
 
-    if (http.protocol !== "HTTP/1.1") return;
+    const formatStringObject = {
+        http,
+        connection,
+        config,
+        host,
+        address,
+        realAddress
+    };
+
+    if (http.protocol !== "HTTP/1.1") return; // No
 
     for (const service of services) {
         const formattedServiceName = `${host} (${service.name || "Unknown service"})`;
 
-        const formatStringObject = {
-            http,
-            connection,
-            service,
-            config,
-
-            host,
-            address,
-            realAddress
-        };
+        formatStringObject.service = service;
 
         if (service.hosts.some(i =>
             i === host ||
@@ -149,7 +105,11 @@ proxy.on("request", (http, connection) => {
                                 }
                             } else if (service.password === password) passedAuth = true;
                         }
-                        if (!passedAuth) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatString(authHtml, formatStringObject));
+                        if (!passedAuth) {
+                            const authPage = formatPage("authentication", formatStringObject);
+                            if (authPage) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatPage("authentication", formatStringObject));
+                            return connection.bypass(401, "Unauthorized");
+                        }
                     }
                 }
 
@@ -166,10 +126,10 @@ proxy.on("request", (http, connection) => {
                     log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
                 });
                 connection.on("client-error", err => {
-                    log("ERROR", "Client error,", err);
+                    log("ERROR", `Client error, ${err}`);
                 });
                 connection.on("origin-error", err => {
-                    log("ERROR", "Origin error,", err);
+                    log("ERROR", `Origin error, ${err}`);
                 });
                 connection.on("client-data", (data, http) => {
                     log("DEBUG", `Client data: ${data.byteLength}`);
@@ -202,6 +162,16 @@ proxy.on("request", (http, connection) => {
                 return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
             }
 
+            if (service.urlBypassed) {
+                const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
+                if (urlBypassed) return connection.bypass(
+                    urlBypassed.status || 200,
+                    urlBypassed.statusText || "OK",
+                    urlBypassed.headers || [["Content-Type", "text/html"]],
+                    urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
+                );
+            }
+
             if (service.redirect) {
                 // Redirect
                 return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
@@ -220,78 +190,82 @@ proxy.on("request", (http, connection) => {
     }
 
     log("LOG", `'${formattedAddress}' went to unknown host '${host}'`);
-    // return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], "<h1>Fuck off</h1>");
+
+    const unknownHostPage = formatPage("unknownHost", formatStringObject);
+    if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
 });
 
 proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
-function loadConfig() {
-    config = JSON.parse(fs.readFileSync("./config.json", "utf-8"))
+// Functions
+
+function initServices() {
+    return new DirectoryMonitor("./services", {
+        loaded: files => log("INFO", `Loaded ${files.length} service${files.length > 1 ? "s" : ""}`),
+        loadError: (err, filePath) => log("ERROR", `Error loading service '${filePath}', ${err}`),
+        reloadError: (err, filePath) => log("ERROR", `Error reloading service '${filePath}', ${err}`),
+        change: filename => log("INFO", `Reloading service '${filename}'`),
+        delete: filename => log("INFO", `Unloading service '${filename}'`),
+        create: filename => log("INFO", `Loading service '${filename}'`),
+        fileFilter: filePath => {
+            if (path.extname(filePath) !== ".json") return false; // File is not a service
+            if (filePath.startsWith("_")) return false; // File starts with "_", disable
+            return true;
+        },
+        parser: (data, filePath) => {
+            const originalService = JSON.parse(data);
+    
+            const service = {
+                name: originalService.name || path.basename(filePath, path.extname(filePath)),
+    
+                ...(config.defaultServiceOptions || {}),
+                ...originalService
+            }
+    
+            if (service.modifiedRequestHeaders) service.modifiedRequestHeaders = [
+                ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
+                ...(originalService.modifiedRequestHeaders || [])
+            ];
+    
+            // Check if service is valid
+            if (service.authentication) {
+                if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
+                if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
+            }
+            if (service.originPort && (service.originPort < 0 || service.originPort > 65535)) throw new Error("Invalid origin port");
+            if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
+    
+            return service;
+        }
+    }).files;
 }
 
-function loadAuthorizationPage() {
-    authHtml = fs.readFileSync(config.authorizationPageLocation, "utf-8");
-}
-
-function loadServices() {
-    const serviceFiles = (function getServiceFiles(dirPath) {
-        const serviceFiles = [];
-        const dir = fs.readdirSync(dirPath);
-        for (const filePath of dir) {
-            const fullPath = path.resolve(dirPath, filePath);
-            if (fs.lstatSync(fullPath).isDirectory()) {
-                serviceFiles.push(...getServiceFiles(fullPath));
-            } else {
-                if (path.extname(filePath) !== ".json") continue; // File is not a service
-                if (filePath.startsWith("_")) continue; // File starts with "_", disable
-                serviceFiles.push(fullPath);
+function initPages() {
+    if (!config.pagesLocation) return;
+    return new DirectoryMonitor(config.pagesLocation, {
+        depth: 0,
+        loaded: files => log("INFO", `Loaded ${files.length} page${files.length > 1 ? "s" : ""}`),
+        loadError: (err, filePath) => log("ERROR", `Error loading page '${filePath}', ${err}`),
+        reloadError: (err, filePath) => log("ERROR", `Error reloading page '${filePath}', ${err}`),
+        change: filename => log("INFO", `Reloading page '${filename}'`),
+        delete: filename => log("INFO", `Unloading page '${filename}'`),
+        create: filename => log("INFO", `Loading page '${filename}'`),
+        fileFilter: filePath => {
+            if (path.extname(filePath) !== ".html") return false; // File is not HTML
+            if (!Object.values(config.pageLocations || { }).includes(path.basename(filePath))) return false; // File is not a page
+            return true;
+        },
+        parser: (data, filePath) => {
+            return {
+                page: Object.keys(config.pageLocations).find(i => config.pageLocations[i] === path.basename(filePath)),
+                data
             }
         }
-        return serviceFiles;
-    })(config.servicesLocation);
-
-    for (const serviceFile of serviceFiles) {
-        try {
-            loadService(serviceFile);
-        } catch (err) {
-            log("INFO", `Failed to load service file '${serviceFile}', ${err}`);
-        }
-    }
-
-    log("INFO", `Loaded ${services.length} service${services.length > 1 ? "s" : ""}`);
+    }).files;
 }
 
-function loadService(serviceFile) {
-    const oldServiceIndex = services.findIndex(i => i._path === serviceFile);
-    if (oldServiceIndex >= 0) services.splice(oldServiceIndex, 1);
-
-    // Parse service
-    const originalService = JSON.parse(fs.readFileSync(serviceFile, "utf-8"));
-
-    // Create service object
-    const service = {
-        _path: serviceFile,
-        
-        name: originalService.name || path.basename(serviceFile, path.extname(serviceFile)),
-
-        ...(config.defaultServiceOptions || { }),
-        ...originalService
-    };
-    if (service.modifiedRequestHeaders) service.modifiedRequestHeaders = [
-        ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
-        ...(originalService.modifiedRequestHeaders || [])
-    ];
-
-    // Check if service is valid
-    if (service.authentication) {
-        if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
-        if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
-    }
-    if (service.originPort && (service.originPort < 0 || service.originPort > 65535)) throw new Error("Invalid origin port");
-    if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
-
-    services.push(service);
-    // log("INFO", `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
+function formatPage(page, formatStringObject) {
+    return formatString(pages.find(i => i.page === page)?.data || "", formatStringObject);
 }
 
 function log(level, ...msgs) {
