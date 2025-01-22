@@ -1,12 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 
+const formatString = require("./utils/formatString");
+const matchAddress = require("./utils/matchAddress");
+
 const Proxy = require("./src/Proxy");
 
 let config;
 let authHtml;
 const services = [];
 
+// Load and watch config
 loadConfig();
 fs.watch("./config.json", () => {
     log("INFO", "Reloading config");
@@ -17,6 +21,7 @@ fs.watch("./config.json", () => {
     }
 });
 
+// Load and watch services
 loadServices();
 fs.watch(config.servicesLocation, { recursive: true }, (event, filename) => {
     if (path.extname(filename) !== ".json") return; // File is not a service
@@ -47,6 +52,7 @@ fs.watch(config.servicesLocation, { recursive: true }, (event, filename) => {
     }
 });
 
+// Load and watch authorization page
 loadAuthorizationPage();
 fs.watch("./authorization.html", () => {
     log("INFO", "Reloading authorization page");
@@ -57,8 +63,10 @@ fs.watch("./authorization.html", () => {
     }
 });
 
+// Create proxy
 const proxy = new Proxy();
 
+// New proxy request (received data with HTTP header)
 proxy.on("request", (http, connection) => {
     const host = http.getHeader("Host");
     const address = connection.clientConnection.address;
@@ -151,6 +159,7 @@ proxy.on("request", (http, connection) => {
                 }
             }
 
+            // Is first HTTP request on connection
             if (connection.firstRequest) {
                 log("LOG", `'${formattedAddress}' connecting to '${formattedServiceName}'`);
                 connection.on("close", () => {
@@ -283,44 +292,6 @@ function loadService(serviceFile) {
 
     services.push(service);
     // log("INFO", `Loaded service '${service.name || path.basename(serviceFile, path.extname(serviceFile))}'`);
-}
-
-function formatString(string, object = {}) {
-    return string.replace(/\\?(?:{{(.+?)}}|%%(.*?)%%)/gs, (match, objectGroup, evalGroup) => {
-        if (match.startsWith("\\")) return match.slice(1);
-
-        if (objectGroup) {
-            return objectGroup.split(".").reduce((acc, key) => acc && acc[key], object) ?? "";
-        }
-
-        if (evalGroup) {
-            try {
-                return eval(`${Object.entries(object).map(([key, value]) => `const ${key} = ${JSON.stringify(value)};`).join("\n")}\n\n${evalGroup}`);
-            } catch (err) {
-                return "";
-            }
-        }
-
-        return match;
-    });
-}
-
-function matchAddress(address, matches) {
-    let matched = null;
-    for (const match of matches) {
-        if (matched) break;
-        const [subnet, bits] = match.split("/");
-        if (bits) {
-            const subnetBinary = subnet.split(".").map(octet => parseInt(octet).toString(2).padStart(8, "0")).join("");
-            const addressBinary = address.split(".").map(octet => parseInt(octet).toString(2).padStart(8, "0")).join("");
-            const maskedSubnet = subnetBinary.substring(0, parseInt(bits));
-            const maskedAddress = addressBinary.substring(0, parseInt(bits));
-            if (maskedSubnet === maskedAddress) matched = match;
-        } else {
-            if (address === match) matched = match;
-        }
-    };
-    return matched;
 }
 
 function log(level, ...msgs) {
