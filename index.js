@@ -24,6 +24,10 @@ const proxy = new Proxy();
 
 // New proxy request (received data with HTTP header)
 proxy.on("request", (http, connection) => {
+    // Check if we should handle this
+    if (http.protocol !== "HTTP/1.1") return;
+    if (!http.getHeader("Host")) return;
+    
     const host = http.getHeader("Host");
     const address = connection.clientConnection.address;
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
@@ -37,8 +41,6 @@ proxy.on("request", (http, connection) => {
         address,
         realAddress
     };
-
-    if (http.protocol !== "HTTP/1.1") return; // No
 
     for (const service of services) {
         const formattedServiceName = `${host} (${service.name || "Unknown service"})`;
