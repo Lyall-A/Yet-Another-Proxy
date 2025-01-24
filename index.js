@@ -272,5 +272,5 @@ function formatPage(page, formatStringObject) {
 
 function log(level, ...msgs) {
     if (!config.logLevels?.includes(level)) return;
-    console.log(`${config.includeTimestamps ? `[${new Date().toLocaleString()}] ` : ""}[${level}]`, ...msgs);
+    console.log(`${config.includeTimestamp ? `[${new Date().toLocaleString()}] ` : ""}[${level}]`, ...msgs);
 }
