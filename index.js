@@ -27,7 +27,7 @@ proxy.on("request", (http, connection) => {
     // Check if we should handle this
     if (http.protocol !== "HTTP/1.1") return;
     if (!http.getHeader("Host")) return;
-    
+
     const host = http.getHeader("Host");
     const address = connection.clientConnection.address;
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
@@ -47,148 +47,148 @@ proxy.on("request", (http, connection) => {
 
         formatStringObject.service = service;
 
-        if (service.hosts.some(i =>
+        if (!service.hosts.some(i =>
             i === host ||
             (i.startsWith(".") && host.endsWith(i)) ||
             (i.endsWith(".") && host.startsWith(i))
-        )) {
-            // Whitelist
-            if (service.whitelistedAddresses?.length) {
-                if (!matchAddress(address, service.whitelistedAddresses)) {
-                    log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
-                    return;
-                }
+        )) continue;
+
+        // Whitelist
+        if (service.whitelistedAddresses?.length) {
+            if (!matchAddress(address, service.whitelistedAddresses)) {
+                log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
+                return;
             }
+        }
 
-            // Blacklist
-            if (service.blacklistedAddresses?.length) {
-                if (matchAddress(address, service.blacklistedAddresses)) {
-                    log("WARN", `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
-                    return;
-                }
+        // Blacklist
+        if (service.blacklistedAddresses?.length) {
+            if (matchAddress(address, service.blacklistedAddresses)) {
+                log("WARN", `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
+                return;
             }
+        }
 
-            // Authentication
-            if (service.authentication) {
-                let passedAuth = false;
-                let authedUsername = null;
-                const bypassedAuth = service.authenticationBypassedAddresses?.length ? (matchAddress(address, service.authenticationBypassedAddresses) || (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses)) ? true : false) : false;
+        // Authentication
+        if (service.authentication) {
+            let passedAuth = false;
+            let authedUsername = null;
+            const bypassedAuth = service.authenticationBypassedAddresses?.length ? (matchAddress(address, service.authenticationBypassedAddresses) || (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses)) ? true : false) : false;
 
-                if (!bypassedAuth) {
-                    if (service.authenticationType === "basic") {
-                        // Basic authentication
-                        const encodedAuthorization = http.getHeader("Authorization")?.match(/Basic (.+)/);
-                        if (encodedAuthorization) {
-                            const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
-                            const [username, password] = decodedAuthorization.split(":");
-                            if (service.users?.length) {
+            if (!bypassedAuth) {
+                if (service.authenticationType === "basic") {
+                    // Basic authentication
+                    const encodedAuthorization = http.getHeader("Authorization")?.match(/Basic (.+)/);
+                    if (encodedAuthorization) {
+                        const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
+                        const [username, password] = decodedAuthorization.split(":");
+                        if (service.users?.length) {
+                            const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
+                            if (user && user.password === password) {
+                                passedAuth = true;
+                                authedUsername = user.username;
+                            }
+                        } else if (service.password === password) passedAuth = true;
+                    }
+                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
+                } else if (service.authenticationType === "cookies") {
+                    // Cookie authentication
+                    const usernameCookie = http.cookies[service.usernameCookie];
+                    const passwordCookie = http.cookies[service.passwordCookie];
+                    if (passwordCookie) {
+                        const password = decodeURIComponent(passwordCookie);
+                        if (service.users?.length) {
+                            if (usernameCookie) {
+                                const username = decodeURIComponent(usernameCookie);
                                 const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
                                 if (user && user.password === password) {
                                     passedAuth = true;
                                     authedUsername = user.username;
                                 }
-                            } else if (service.password === password) passedAuth = true;
-                        }
-                        if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
-                    } else if (service.authenticationType === "cookies") {
-                        // Cookie authentication
-                        const usernameCookie = http.cookies[service.usernameCookie];
-                        const passwordCookie = http.cookies[service.passwordCookie];
-                        if (passwordCookie) {
-                            const password = decodeURIComponent(passwordCookie);
-                            if (service.users?.length) {
-                                if (usernameCookie) {
-                                    const username = decodeURIComponent(usernameCookie);
-                                    const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                                    if (user && user.password === password) {
-                                        passedAuth = true;
-                                        authedUsername = user.username;
-                                    }
-                                }
-                            } else if (service.password === password) passedAuth = true;
-                        }
-                        if (!passedAuth) {
-                            const authPage = formatPage("authentication", formatStringObject);
-                            if (authPage) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatPage("authentication", formatStringObject));
-                            return connection.bypass(401, "Unauthorized");
-                        }
+                            }
+                        } else if (service.password === password) passedAuth = true;
                     }
-                }
-
-                if (!passedAuth && !bypassedAuth) return; else {
-                    if (passedAuth) log("LOG", `'${formattedAddress}' authenticated${authedUsername ? ` as '${authedUsername}'` : ""} for '${formattedServiceName}'`);
-                    if (bypassedAuth) log("WARN", `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
-                }
-            }
-
-            // Is first HTTP request on connection
-            if (connection.firstRequest) {
-                log("LOG", `'${formattedAddress}' connecting to '${formattedServiceName}'`);
-                connection.on("close", () => {
-                    log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
-                });
-                connection.on("client-error", err => {
-                    log("ERROR", `Client error, ${err}`);
-                });
-                connection.on("origin-error", err => {
-                    log("ERROR", `Origin error, ${err}`);
-                });
-                connection.on("client-data", (data, http) => {
-                    log("DEBUG", `Client data: ${data.byteLength}`);
-                });
-                connection.on("origin-data", (data, http) => {
-                    log("DEBUG", `Origin data: ${data.byteLength}`);
-                });
-            }
-
-            // Modify request headers
-            if (service.modifiedRequestHeaders) {
-                const originalHeaders = http.headers.map(([key, value]) => ([key, value]));
-                for (const [key, value] of service.modifiedRequestHeaders) {
-                    if (value === null) {
-                        // Delete header
-                        http.removeHeader(key);
-                    } else if (value === true) {
-                        // Keep original header
-                        const originalHeader = originalHeaders.find(([originalKey, originalValue]) => originalKey === key);
-                        if (originalHeader) http.setHeader(key, originalHeader[1]);
-                    } else {
-                        // Modify header
-                        http.setHeader(key, formatString(value, formatStringObject));
+                    if (!passedAuth) {
+                        const authPage = formatPage("authentication", formatStringObject);
+                        if (authPage) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatPage("authentication", formatStringObject));
+                        return connection.bypass(401, "Unauthorized");
                     }
                 }
             }
 
-            // Disallow robots
-            if (service.disallowRobots && http.target === "/robots.txt") {
-                return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
+            if (!passedAuth && !bypassedAuth) return; else {
+                if (passedAuth) log("LOG", `'${formattedAddress}' authenticated${authedUsername ? ` as '${authedUsername}'` : ""} for '${formattedServiceName}'`);
+                if (bypassedAuth) log("WARN", `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
             }
-
-            if (service.urlBypassed) {
-                const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
-                if (urlBypassed) return connection.bypass(
-                    urlBypassed.status || 200,
-                    urlBypassed.statusText || "OK",
-                    urlBypassed.headers || [["Content-Type", "text/html"]],
-                    urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
-                );
-            }
-
-            if (service.redirect) {
-                // Redirect
-                return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
-            }
-            else if (service.originHost && service.originPort) {
-                // Proxy
-                connection.proxy({
-                    host: service.originHost,
-                    port: service.originPort,
-                    ssl: service.ssl
-                });
-            }
-
-            return;
         }
+
+        // Is first HTTP request on connection
+        if (connection.firstRequest) {
+            log("LOG", `'${formattedAddress}' connecting to '${formattedServiceName}'`);
+            connection.on("close", () => {
+                log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
+            });
+            connection.on("client-error", err => {
+                log("ERROR", `Client error, ${err}`);
+            });
+            connection.on("origin-error", err => {
+                log("ERROR", `Origin error, ${err}`);
+            });
+            connection.on("client-data", (data, http) => {
+                log("DEBUG", `Client data: ${data.byteLength}`);
+            });
+            connection.on("origin-data", (data, http) => {
+                log("DEBUG", `Origin data: ${data.byteLength}`);
+            });
+        }
+
+        // Modify request headers
+        if (service.modifiedRequestHeaders) {
+            const originalHeaders = http.headers.map(([key, value]) => ([key, value]));
+            for (const [key, value] of service.modifiedRequestHeaders) {
+                if (value === null) {
+                    // Delete header
+                    http.removeHeader(key);
+                } else if (value === true) {
+                    // Keep original header
+                    const originalHeader = originalHeaders.find(([originalKey, originalValue]) => originalKey === key);
+                    if (originalHeader) http.setHeader(key, originalHeader[1]);
+                } else {
+                    // Modify header
+                    http.setHeader(key, formatString(value, formatStringObject));
+                }
+            }
+        }
+
+        // Disallow robots
+        if (service.disallowRobots && http.target === "/robots.txt") {
+            return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
+        }
+
+        if (service.urlBypassed) {
+            const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
+            if (urlBypassed) return connection.bypass(
+                urlBypassed.status || 200,
+                urlBypassed.statusText || "OK",
+                urlBypassed.headers || [["Content-Type", "text/html"]],
+                urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
+            );
+        }
+
+        if (service.redirect) {
+            // Redirect
+            return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
+        }
+        else if (service.originHost && service.originPort) {
+            // Proxy
+            return connection.proxy({
+                host: service.originHost,
+                port: service.originPort,
+                ssl: service.ssl
+            });
+        }
+
+        return;
     }
 
     log("LOG", `'${formattedAddress}' went to unknown host '${host}'`);
@@ -216,19 +216,19 @@ function initServices() {
         },
         parser: (data, filePath) => {
             const originalService = JSON.parse(data);
-    
+
             const service = {
                 name: originalService.name || path.basename(filePath, path.extname(filePath)),
-    
+
                 ...(config.defaultServiceOptions || {}),
                 ...originalService
             }
-    
+
             if (service.modifiedRequestHeaders) service.modifiedRequestHeaders = [
                 ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
                 ...(originalService.modifiedRequestHeaders || [])
             ];
-    
+
             // Check if service is valid
             if (service.authentication) {
                 if (!service.users?.length && !service.password) throw new Error("Service authentication enabled but no users or password set");
@@ -236,7 +236,7 @@ function initServices() {
             }
             if (service.originPort && (service.originPort < 0 || service.originPort > 65535)) throw new Error("Invalid origin port");
             if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
-    
+
             return service;
         }
     }).files;
@@ -254,7 +254,7 @@ function initPages() {
         create: filename => log("INFO", `Loading page '${filename}'`),
         fileFilter: filePath => {
             if (path.extname(filePath) !== ".html") return false; // File is not HTML
-            if (!Object.values(config.pageLocations || { }).includes(path.basename(filePath))) return false; // File is not a page
+            if (!Object.values(config.pageLocations || {}).includes(path.basename(filePath))) return false; // File is not a page
             return true;
         },
         parser: (data, filePath) => {
