@@ -29,7 +29,7 @@ class Proxy extends EventEmitter {
 
         this.server.on("connection", socket => {
             const clientConnection = new Connection(socket);
-            if (!clientConnection.address) return clientConnection.destroy(); // Weird thing that happens
+            if (!clientConnection.remoteAddress) return clientConnection.destroy(); // Weird thing that happens
 
             const connection = new ProxyConnection(clientConnection);
             this.connections.push(connection);
@@ -43,16 +43,12 @@ class Proxy extends EventEmitter {
                 connection.emit("client-data", data, http);
 
                 if (http) {
-                    // if (connection.state === 0) this.emit("request", http, connection);
                     this.emit("request", http, connection);
                     connection.firstRequest = false;
-                
-                    if (connection.state === 0) return connection.close();
-                    if (connection.state > 0) connection.writeOrigin(http.toBuffer());
-                } else {
-                    if (connection.state === 0) return connection.close();
-                    if (connection.state > 0) connection.writeOrigin(data);
                 }
+                
+                if (connection.state === 0) return connection.close();
+                if (connection.state > 0) connection.writeOrigin(http ? http.toBuffer() : data);
             });
 
             clientConnection.on("close", () => {

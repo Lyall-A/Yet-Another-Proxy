@@ -13,9 +13,6 @@ class Connection extends EventEmitter {
         this.localPort = connection.localPort;
         this.remotePort = connection.remotePort;
 
-        this.address = this.remoteAddress;
-        this.port = this.remotePort;
-
         this.connection.on("data", data => {
             let http = null;
             try {

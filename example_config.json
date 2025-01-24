@@ -2,6 +2,7 @@
     "port": 80,
     "logLevels": ["INFO", "ERROR", "WARN"],
     "hostname": "0.0.0.0",
+    "includeTimestamps": true,
     "pagesLocation": "pages",
     "pageLocations": {
         "authentication": "authentication.html",

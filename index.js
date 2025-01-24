@@ -24,12 +24,8 @@ const proxy = new Proxy();
 
 // New proxy request (received data with HTTP header)
 proxy.on("request", (http, connection) => {
-    // Check if we should handle this
-    if (http.protocol !== "HTTP/1.1") return;
-    if (!http.getHeader("Host")) return;
-
-    const host = http.getHeader("Host");
-    const address = connection.clientConnection.address;
+    const hostname = http.getHeader("Host")?.split(":")[0];
+    const address = connection.clientConnection.remoteAddress;
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
     const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
 
@@ -37,20 +33,24 @@ proxy.on("request", (http, connection) => {
         http,
         connection,
         config,
-        host,
+        hostname,
         address,
         realAddress
     };
 
+    // Check if we should handle this
+    if (http.protocol !== "HTTP/1.1") return;
+    if (!hostname) return;
+
     for (const service of services) {
-        const formattedServiceName = `${host} (${service.name || "Unknown service"})`;
+        const formattedServiceName = `${hostname} (${service.name || "Unknown service"})`;
 
         formatStringObject.service = service;
 
         if (!service.hosts.some(i =>
-            i === host ||
-            (i.startsWith(".") && host.endsWith(i)) ||
-            (i.endsWith(".") && host.startsWith(i))
+            i === hostname ||
+            (i.startsWith(".") && hostname.endsWith(i)) ||
+            (i.endsWith(".") && hostname.startsWith(i))
         )) continue;
 
         // Whitelist
@@ -129,16 +129,16 @@ proxy.on("request", (http, connection) => {
                 log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
             });
             connection.on("client-error", err => {
-                log("ERROR", `Client error, ${err}`);
+                log("ERROR", `Client error for '${formattedServiceName}',`, err);
             });
             connection.on("origin-error", err => {
-                log("ERROR", `Origin error, ${err}`);
+                log("ERROR", `Origin error for '${formattedServiceName}',`, err);
             });
             connection.on("client-data", (data, http) => {
-                log("DEBUG", `Client data: ${data.byteLength}`);
+                log("DEBUG", `Client data for '${formattedServiceName}': ${data.byteLength}`);
             });
             connection.on("origin-data", (data, http) => {
-                log("DEBUG", `Origin data: ${data.byteLength}`);
+                log("DEBUG", `Origin data for '${formattedServiceName}': ${data.byteLength}`);
             });
         }
 
@@ -191,7 +191,7 @@ proxy.on("request", (http, connection) => {
         return;
     }
 
-    log("LOG", `'${formattedAddress}' went to unknown host '${host}'`);
+    log("LOG", `'${formattedAddress}' went to unknown host '${hostname}'`);
 
     const unknownHostPage = formatPage("unknownHost", formatStringObject);
     if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
@@ -272,5 +272,5 @@ function formatPage(page, formatStringObject) {
 
 function log(level, ...msgs) {
     if (!config.logLevels?.includes(level)) return;
-    console.log(`[${level}]`, ...msgs);
+    console.log(`${config.includeTimestamps ? `[${new Date().toLocaleString()}] ` : ""}[${level}]`, ...msgs);
 }
