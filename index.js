@@ -214,7 +214,7 @@ function initServices() {
         create: filename => log("INFO", `Loading service '${filename}'`),
         fileFilter: filePath => {
             if (path.extname(filePath) !== ".json") return false; // File is not a service
-            if (filePath.startsWith("_")) return false; // File starts with "_", disable
+            if (path.basename(filePath).startsWith("_")) return false; // File starts with "_", disable
             return true;
         },
         parser: (data, filePath) => {
