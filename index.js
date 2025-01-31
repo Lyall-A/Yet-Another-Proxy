@@ -184,7 +184,8 @@ proxy.on("request", (http, connection) => {
             return connection.proxy({
                 host: service.originHost,
                 port: service.originPort,
-                ssl: service.ssl
+                ssl: service.ssl,
+                connectionOptions: service.connectionOptions
             });
         }
 
