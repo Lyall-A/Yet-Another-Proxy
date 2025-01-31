@@ -5,14 +5,16 @@ const formatString = require("./utils/formatString");
 const matchAddress = require("./utils/matchAddress");
 const matchUrl = require("./utils/matchUrl");
 const DirectoryMonitor = require("./utils/DirectoryMonitor");
+const parseService = require("./utils/parseService");
+const parseConfig = require("./utils/parseConfig");
 
 const Proxy = require("./src/Proxy");
 
 // Load and watch config
-let config = JSON.parse(fs.readFileSync("./config.json", "utf-8"));
+let config = parseConfig(JSON.parse(fs.readFileSync("./config.json", "utf-8")));
 fs.watch("./config.json", () => {
     log("INFO", "Reloading config");
-    try { config = JSON.parse(fs.readFileSync("./config.json", "utf-8")); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
+    try { config = parseConfig(JSON.parse(fs.readFileSync("./config.json", "utf-8"))); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
 // Load and watch services
 const services = initServices();
@@ -216,7 +218,7 @@ function initServices() {
             return true;
         },
         parser: (data, filePath) => {
-            const originalService = JSON.parse(data);
+            const originalService = parseService(JSON.parse(data));
 
             const service = {
                 name: originalService.name || path.basename(filePath, path.extname(filePath)),

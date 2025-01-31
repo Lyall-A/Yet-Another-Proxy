@@ -1,4 +1,5 @@
 {
+    "_version": 1,
     "port": 80,
     "logLevels": ["INFO", "ERROR", "WARN"],
     "hostname": "0.0.0.0",
