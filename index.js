@@ -173,7 +173,7 @@ proxy.on("request", (http, connection) => {
             if (urlBypassed) return connection.bypass(
                 urlBypassed.status || 200,
                 urlBypassed.statusText || "OK",
-                urlBypassed.headers || [["Content-Type", "text/html"]],
+                urlBypassed.headers || [["Content-Type", urlBypassed.page ? "text/html" : "text/plain"]],
                 urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
             );
         }
