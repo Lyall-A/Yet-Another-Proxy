@@ -167,6 +167,7 @@ proxy.on("request", (http, connection) => {
             return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
         }
 
+        // URL bypassed
         if (service.urlBypassed) {
             const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
             if (urlBypassed) return connection.bypass(
@@ -238,7 +239,7 @@ function initServices() {
                 if (service.authenticationType !== "basic" && service.authenticationType !== "cookies") throw new Error(`Unknown authentication type '${service.authenticationType}'`);
             }
             if (service.originPort && (service.originPort < 0 || service.originPort > 65535)) throw new Error("Invalid origin port");
-            if (!service.redirect && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
+            if (!service.redirect && !service.urlBypassed && (!service.originHost || !service.originPort)) throw new Error("Nothing to do");
 
             return service;
         }
