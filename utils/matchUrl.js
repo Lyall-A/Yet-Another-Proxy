@@ -1,8 +1,9 @@
 const escapeRegex = require("./escapeRegex");
 
 function matchUrl(pattern, url) {
-    // TODO: make better, very simple rn just for testing
-    return new RegExp(`^${pattern.split("*").map(escapeRegex).join(".+")}$`).test(url);
+    // TODO: make better, /hello/* matches /hello/some/thing
+    // Match URL, ignores trailing slash and duplicate slashes
+    return new RegExp(`^${pattern.split("*").map(escapeRegex).join(".+")}\/?$`).test(url.replace(/\/+/g, "/"));
 }
 
 module.exports = matchUrl;

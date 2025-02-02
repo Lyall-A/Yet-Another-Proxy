@@ -13,4 +13,4 @@ A HTTP proxy based on the `Host` header (eg: `plex.example.org` > `localhost:324
 * Easy to configure
 
 ## TODO's
-* Custom service file (not JSON)
+* API server to control the proxy

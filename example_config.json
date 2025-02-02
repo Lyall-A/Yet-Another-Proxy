@@ -10,7 +10,7 @@
         "unknownHost": "unknown-host.html",
         "bypassTest": "bypass-test.html"
     },
-    "servicesLocation": "services",
+    "servicesLocation": "example_services",
     "realIPHeaders": [
         "X-Real-IP",
         "CF-Connecting-IP"

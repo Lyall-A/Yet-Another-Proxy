@@ -7,14 +7,26 @@ const matchUrl = require("./utils/matchUrl");
 const DirectoryMonitor = require("./utils/DirectoryMonitor");
 const parseService = require("./utils/parseService");
 const parseConfig = require("./utils/parseConfig");
-
+const parseArgs = require("./utils/parseArgs");
 const Proxy = require("./src/Proxy");
 
+const argOptions = [
+    { long: "help", short: "h", description: "Display this menu" },
+    { long: "config", short: "c", description: "Use a different config file", default: "./config.json" },
+    { long: "hostname", short: "host", description: "Listen on hostname" },
+    { long: "port", short: "p", description: "Listen on port", type: "int" },
+    { long: "services", description: "Use a different services directory" },
+    { long: "pages", description: "Use a different pages directory" },
+];
+const args = parseArgs(process.argv.slice(2), argOptions);
+
+if (args.help.present) return console.log(`Usage: node . [OPTION]...\n\n  ${argOptions.map(i => `${[i.long ? `--${i.long}` : null, i.short ? `-${i.short}` : null].filter(i => i).join(", ").padEnd(25, " ")}${i.description || "???"}${i.default ? `, default: ${i.default}` : ""}`).join("\n  ")}`);
+
 // Load and watch config
-let config = parseConfig(JSON.parse(fs.readFileSync("./config.json", "utf-8")));
-fs.watch("./config.json", () => {
+let config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
+fs.watch(args.config.value, () => {
     log("INFO", "Reloading config");
-    try { config = parseConfig(JSON.parse(fs.readFileSync("./config.json", "utf-8"))); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
+    try { config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8"))); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
 // Load and watch services
 const services = initServices();
@@ -201,12 +213,12 @@ proxy.on("request", (http, connection) => {
     if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
 });
 
-proxy.listen(config.port || 80, config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
+proxy.listen(args.port.value || config.port || 80, args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
 // Functions
 
 function initServices() {
-    return new DirectoryMonitor("./services", {
+    return new DirectoryMonitor(args.services.value || config.servicesLocation, {
         loaded: files => log("INFO", `Loaded ${files.length} service${files.length > 1 ? "s" : ""}`),
         loadError: (err, filePath) => log("ERROR", `Error loading service '${filePath}', ${err}`),
         reloadError: (err, filePath) => log("ERROR", `Error reloading service '${filePath}', ${err}`),
@@ -221,17 +233,18 @@ function initServices() {
         parser: (data, filePath) => {
             const originalService = parseService(JSON.parse(data));
 
+            // Combine default service options and service
             const service = {
                 name: originalService.name || path.basename(filePath, path.extname(filePath)),
 
                 ...(config.defaultServiceOptions || {}),
                 ...originalService
             }
-
             if (service.modifiedRequestHeaders) service.modifiedRequestHeaders = [
                 ...(config.defaultServiceOptions?.modifiedRequestHeaders || []),
                 ...(originalService.modifiedRequestHeaders || [])
             ];
+            if (service.originHost && !service.originPort) service.originPort = service.ssl ? 443 : 80;
 
             // Check if service is valid
             if (service.authentication) {
@@ -247,8 +260,8 @@ function initServices() {
 }
 
 function initPages() {
-    if (!config.pagesLocation) return;
-    return new DirectoryMonitor(config.pagesLocation, {
+    if (!args.pages.value && !config.pagesLocation) return;
+    return new DirectoryMonitor(args.pages.value || config.pagesLocation, {
         depth: 0,
         loaded: files => log("INFO", `Loaded ${files.length} page${files.length > 1 ? "s" : ""}`),
         loadError: (err, filePath) => log("ERROR", `Error loading page '${filePath}', ${err}`),

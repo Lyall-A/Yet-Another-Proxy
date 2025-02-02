@@ -1,0 +1,6 @@
+{
+    "hosts": ["localhost"],
+    "originHost": "example.com",
+    "originPort": 443,
+    "ssl": true
+}
