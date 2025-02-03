@@ -26,6 +26,9 @@
         "modifiedRequestHeaders": [
             ["Host", "{{service.originHost}}:{{service.originPort}}"]
         ],
+        "modifiedResponseHeaders": [
+            ["X-YAP-Origin-Host", "{{service.originHost}}:{{service.originPort}}"]
+        ],
         "authenticationBypassedAddresses": [
             "::1",
             "127.0.0.1",

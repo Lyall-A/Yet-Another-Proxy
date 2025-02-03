@@ -8,6 +8,7 @@ const DirectoryMonitor = require("./utils/DirectoryMonitor");
 const parseService = require("./utils/parseService");
 const parseConfig = require("./utils/parseConfig");
 const parseArgs = require("./utils/parseArgs");
+const modifyHeaders = require("./utils/modifyHeaders");
 const Proxy = require("./src/Proxy");
 
 const argOptions = [
@@ -138,6 +139,14 @@ proxy.on("request", (http, connection) => {
 
         // Is first HTTP request on connection
         if (connection.firstRequest) {
+            connection.on("response", http => {
+                // Modify response headers
+                if (service.modifiedResponseHeaders) {
+                    modifyHeaders(service.modifiedResponseHeaders, http, formatStringObject);
+                }
+            });
+
+            // Logging
             log("LOG", `'${formattedAddress}' connecting to '${formattedServiceName}'`);
             connection.on("close", () => {
                 log("LOG", `'${formattedAddress}' disconnected from '${formattedServiceName}'`);
@@ -158,20 +167,7 @@ proxy.on("request", (http, connection) => {
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {
-            const originalHeaders = http.headers.map(([key, value]) => ([key, value]));
-            for (const [key, value] of service.modifiedRequestHeaders) {
-                if (value === null) {
-                    // Delete header
-                    http.removeHeader(key);
-                } else if (value === true) {
-                    // Keep original header
-                    const originalHeader = originalHeaders.find(([originalKey, originalValue]) => originalKey === key);
-                    if (originalHeader) http.setHeader(key, originalHeader[1]);
-                } else {
-                    // Modify header
-                    http.setHeader(key, formatString(value, formatStringObject));
-                }
-            }
+            modifyHeaders(service.modifiedRequestHeaders, http, formatStringObject);
         }
 
         // Disallow robots

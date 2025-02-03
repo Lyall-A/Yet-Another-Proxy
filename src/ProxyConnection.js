@@ -74,6 +74,7 @@ class ProxyConnection extends EventEmitter {
             this.emit("origin-data", data, http);
 
             if (http) {
+                this.emit("response", http);
                 this.writeClient(http.toBuffer());
             } else {
                 this.writeClient(data);
