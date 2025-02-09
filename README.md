@@ -15,6 +15,8 @@ A HTTP proxy based on the `Host` header (eg: `plex.example.org` > `localhost:324
 * Can be imported as JS module
 * Easy to configure
 
+The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.cloudflare.com/ips) and local IP's by default
+
 ## Usage
 * `node .` to start or `node . --help` for a list of optional arguments
 
