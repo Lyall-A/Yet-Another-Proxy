@@ -1,6 +1,9 @@
 {
     "_version": 1,
     "port": 80,
+    "ssl": false,
+    "cert": "certificate.crt",
+    "key": "private.key",
     "logLevels": ["INFO", "ERROR", "WARN"],
     "hostname": "0.0.0.0",
     "includeTimestamp": true,

@@ -35,7 +35,11 @@ const services = initServices();
 const pages = initPages();
 
 // Create proxy
-const proxy = new Proxy();
+const proxy = new Proxy({
+    ssl: config.ssl,
+    certFile: config.cert,
+    keyFile: config.key
+});
 
 // New proxy request (received data with HTTP header)
 proxy.on("request", (http, connection) => {
@@ -137,6 +141,8 @@ proxy.on("request", (http, connection) => {
             }
         }
 
+        log("DEBUG", `${formattedAddress} went to ${formattedServiceName}, method: ${http.method}, target: ${http.target}, headers: ${JSON.stringify(http.headers)}`);
+        
         // Is first HTTP request on connection
         if (connection.firstRequest) {
             connection.on("response", http => {
@@ -209,7 +215,7 @@ proxy.on("request", (http, connection) => {
     if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
 });
 
-proxy.listen(args.port.value || config.port || 80, args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
+proxy.listen(args.port.value || config.port || (config.ssl ? 443 : 80), args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
 // Functions
 
