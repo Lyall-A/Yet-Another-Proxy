@@ -21,6 +21,10 @@ The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.clo
 * `node .` to start or `node . --help` for a list of optional arguments
 
 ## Notes
+* If using Cloudflare, there is an issue with caching that can cause the response to be from a completely different service or path
+
+* Cloudflare caching is not recommended but if using, add a cache rule that bypasses any requests containing the `YAP-Username` or `YAP-Password` cookie
+
 * I've found many bugs with [Bun](https://bun.sh/) relating to the HTTP and Net modules, but Bun will *probably* work (`bun .`)
 
 ## TODO's
