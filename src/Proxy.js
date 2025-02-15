@@ -21,13 +21,14 @@ class Proxy extends EventEmitter {
             if (!this.serverOptions.cert) this.serverOptions.cert = options.cert || fs.readFileSync(options.certFile);
             if (!this.serverOptions.key) this.serverOptions.key = options.key || fs.readFileSync(options.keyFile);
 
-            this.server = tls.createServer(this.serverOptions, handleConnection);
+            this.server = tls.createServer(this.serverOptions);
         } else {
             // Without SSL (HTTP)
-            this.server = net.createServer(this.serverOptions, handleConnection);
+            this.server = net.createServer(this.serverOptions);
         }
 
-        function handleConnection(socket) {
+        this.server.on(options.ssl ? "secureConnection" : "connection", socket => {
+            console.log(socket);
             const clientConnection = new Connection(socket);
             if (!clientConnection.remoteAddress) return clientConnection.destroy(); // Weird thing that happens
 
@@ -63,7 +64,7 @@ class Proxy extends EventEmitter {
             });
 
             clientConnection.on("drain", () => connection.originConnection.resume());
-        };
+        });
     }
 
     connections = [ ];
