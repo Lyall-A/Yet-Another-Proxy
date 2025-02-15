@@ -28,7 +28,6 @@ class Proxy extends EventEmitter {
         }
 
         this.server.on(options.ssl ? "secureConnection" : "connection", socket => {
-            console.log(socket);
             const clientConnection = new Connection(socket);
             if (!clientConnection.remoteAddress) return clientConnection.destroy(); // Weird thing that happens
 
