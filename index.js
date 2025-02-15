@@ -15,6 +15,9 @@ const argOptions = [
     { long: "help", short: "h", description: "Display this menu" },
     { long: "config", short: "c", description: "Use a different config file", default: "./config.json" },
     { long: "hostname", short: "host", description: "Listen on hostname" },
+    { long: "secure", description: "Enable SSL", type: "bool" },
+    { long: "cert", description: "Certificate file" },
+    { long: "key", description: "Private key file" },
     { long: "port", short: "p", description: "Listen on port", type: "int" },
     { long: "services", description: "Use a different services directory" },
     { long: "pages", description: "Use a different pages directory" },
@@ -36,9 +39,9 @@ const pages = initPages();
 
 // Create proxy
 const proxy = new Proxy({
-    ssl: config.ssl,
-    certFile: config.cert,
-    keyFile: config.key
+    ssl: args.secure.present ? args.secure.value : config.ssl,
+    certFile: args.cert.value || config.cert,
+    keyFile: args.key.value || config.key
 });
 
 // New proxy request (received data with HTTP header)
