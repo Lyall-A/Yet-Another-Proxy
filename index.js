@@ -39,7 +39,7 @@ const pages = initPages();
 
 // Create proxy
 const proxy = new Proxy({
-    ssl: args.secure.present ? args.secure.value : config.ssl,
+    ssl: (args.secure.present ? args.secure.value : config.ssl) ? true : false,
     certFile: args.cert.value || config.cert,
     keyFile: args.key.value || config.key
 });
