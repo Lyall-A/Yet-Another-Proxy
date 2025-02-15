@@ -18,8 +18,8 @@ class Proxy extends EventEmitter {
             // With SSL (HTTPS)
             if ((!options.cert && !options.certFile) || (!options.key && !options.keyFile)) throw new Error("No key or certificate provided for server");
 
-            if (!this.serverOptions.cert) this.serverOptions.cert = options.cert || fs.readFileSync(options.certFile, "utf-8");
-            if (!this.serverOptions.key) this.serverOptions.key = options.key || fs.readFileSync(options.keyFile, "utf-8");
+            if (!this.serverOptions.cert) this.serverOptions.cert = options.cert || fs.readFileSync(options.certFile);
+            if (!this.serverOptions.key) this.serverOptions.key = options.key || fs.readFileSync(options.keyFile);
 
             this.server = tls.createServer(this.serverOptions);
         } else {
