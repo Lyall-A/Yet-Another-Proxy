@@ -312,3 +312,6 @@ function log(level, ...msgs) {
     if (!config.logLevels?.includes(level)) return;
     console.log(`${config.includeTimestamp ? `[${new Date().toLocaleString()}] ` : ""}[${level}]`, ...msgs);
 }
+
+// TESTING
+setInterval(() => console.log(proxy.connections.map(i => `${i.clientConnection.remoteAddress} > ${i.originOptions.host}:${i.originOptions.port} (${i.requests} requests)`).join(", ") + `\n${proxy.connections.length}`), 1000);
