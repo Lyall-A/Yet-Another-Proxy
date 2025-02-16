@@ -48,9 +48,14 @@ class ProxyConnection extends EventEmitter {
 
     close() {
         this.clientConnection.destroy();
-        if (this.originConnection) this.originConnection.destroy();
+        this.closeOrigin();
 
         this.emit("close");
+    }
+
+    closeOrigin() {
+        if (this.originConnection) this.originConnection.destroy();
+        this.state = 0;
     }
 
     writeClient(data) {
@@ -72,7 +77,15 @@ class ProxyConnection extends EventEmitter {
     }
     
     proxy(options = { }) {
-        if (this.state > 0) return;
+        if (this.state > 0) {
+            if (options.host !== this.originOptions.host || options.port !== this.originOptions.port) {
+                // console.log(`Changing origin ${this.originOptions.host}:${this.originOptions.port} > ${options.host}:${options.port}`);
+                // Fix for sending requests to multiple origins on the same connection
+                this.closeOrigin();
+            } else {
+                return;
+            }
+        };
         this.state = 1;
         this.originOptions = options;
         
@@ -83,7 +96,7 @@ class ProxyConnection extends EventEmitter {
             ...(options.connectionOptions || { })
         };
         this.originConnectionOptions = originConnectionOptions;
-        
+
         if (options.ssl) {
             // With SSL (HTTPS)
             this.originConnection = new Connection(tls.connect(originConnectionOptions));
@@ -92,7 +105,7 @@ class ProxyConnection extends EventEmitter {
             this.originConnection = new Connection(net.connect(originConnectionOptions));
         }
 
-        this.originConnection.on("open", () => {
+        this.originConnection.on(options.ssl ? "secureConnect" : "connect", () => {
             this.emit("origin-open");
             this.state = 2;
         });
@@ -109,8 +122,12 @@ class ProxyConnection extends EventEmitter {
         });
 
         this.originConnection.on("close", () => {
-            this.emit("origin-close");
-            this.close();
+            if (options.host === this.originOptions.host && options.port === this.originOptions.port) {
+                this.emit("origin-close");
+                this.close();
+            } else {
+                this.emit("origin-change");
+            }
         });
 
         this.originConnection.on("error", err => {

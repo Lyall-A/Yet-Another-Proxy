@@ -1,12 +1,12 @@
 {
     "_version": 1,
+    "debug": false,
+    "hostname": "0.0.0.0",
     "port": 80,
     "ssl": false,
     "cert": "certificate.crt",
     "key": "private.key",
     "logLevels": ["INFO", "ERROR", "WARN"],
-    "debug": true,
-    "hostname": "0.0.0.0",
     "includeTimestamp": true,
     "pagesLocation": "pages",
     "pageLocations": {

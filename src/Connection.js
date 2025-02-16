@@ -25,7 +25,8 @@ class Connection extends EventEmitter {
             this.emit("data", data, http);
         });
         
-        this.connection.on("open", () => this.emit("open"));
+        this.connection.on("secureConnect", () => this.emit("secureConnect"));
+        this.connection.on("connect", () => this.emit("connect"));
         this.connection.on("end", () => this.emit("end"));
         this.connection.on("close", () => this.emit("close"));
         this.connection.on("error", err => this.emit("error", err));
@@ -33,11 +34,11 @@ class Connection extends EventEmitter {
     }
 
     pause() {
-        this.connection.pause();
+        return this.connection.pause();
     }
 
     resume() {
-        this.connection.resume();
+        return this.connection.resume();
     }
 
     write(data) {
@@ -45,11 +46,11 @@ class Connection extends EventEmitter {
     }
 
     end(data) {
-        this.connection.end(data);
+        return this.connection.end(data);
     }
 
     destroy() {
-        this.connection.destroy();
+        return this.connection.destroy();
     }
 }
 
