@@ -25,7 +25,7 @@ The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.clo
 
 ## Troubleshooting
 * **If you have too much connections open at the same time:**
-  * Add `Connection: close` header to `modifiedRequestHeaders`, this should prevent multiple requests from being sent over the same connection
+  * Add `Connection: close` header to `modifiedRequestHeaders` or/and `modifiedResponseHeaders`, this should prevent multiple requests from being sent over the same connection
 
 ## Notes
 * ~~If using Cloudflare, there is an issue with caching that can cause the response to be from a completely different service or path~~ should be fixed as of [d1290dc](https://github.com/Lyall-A/Yet-Another-Proxy/commit/d1290dc), I think this was caused from Cloudflare using the same TCP connection for multiple services
