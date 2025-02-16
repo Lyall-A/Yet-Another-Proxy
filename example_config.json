@@ -8,7 +8,6 @@
     "key": "private.key",
     "logLevels": ["INFO", "ERROR", "WARN"],
     "includeTimestamp": true,
-    "maxConnections": 50,    
     "pagesLocation": "pages",
     "pageLocations": {
         "authentication": "authentication.html",
