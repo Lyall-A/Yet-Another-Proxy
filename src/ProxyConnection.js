@@ -35,7 +35,7 @@ class ProxyConnection extends EventEmitter {
             this.close();
         });
 
-        clientConnection.on("drain", () => connection.originConnection.resume());
+        clientConnection.on("drain", () => this.originConnection.resume());
     }
 
     originConnection = null;
