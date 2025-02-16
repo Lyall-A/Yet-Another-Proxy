@@ -10,13 +10,40 @@ class ProxyConnection extends EventEmitter {
         super();
 
         this.clientConnection = clientConnection;
+
+        clientConnection.on("data", (data, http) => {
+            this.emit("client-data", data, http);
+
+            if (http) {
+                this.requests++;
+                this.emit("request", http);
+                this.firstRequest = false;
+            }
+            
+            if (this.state === 0) return this.close();
+            if (this.state > 0) this.writeOrigin(http ? http.toBuffer() : data);
+        });
+
+        clientConnection.on("close", () => {
+            this.emit("client-close");
+            this.close();
+        });
+
+        clientConnection.on("error", err => {
+            // console.log(err);
+            this.emit("client-error", err);
+            this.close();
+        });
+
+        clientConnection.on("drain", () => connection.originConnection.resume());
     }
 
     originConnection = null;
     originOptions = null;
     originConnectionOptions = null;
-    connectTimestamp = Date.now();
-    state = 0; // -1: Bypass, 0: Not connecting, 1: Connecting, 2: Connected
+    connectionDate = new Date();
+    state = 0; // -1: Bypass/Not relevant, 0: Not connecting, 1: Connecting, 2: Connected
+    requests = 0;
     firstRequest = true;
 
     close() {

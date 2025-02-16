@@ -12,24 +12,25 @@ const modifyHeaders = require("./utils/modifyHeaders");
 const Proxy = require("./src/Proxy");
 
 const argOptions = [
-    { long: "help", short: "h", description: "Display this menu" },
-    { long: "config", short: "c", description: "Use a different config file", default: "./config.json" },
-    { long: "hostname", short: "host", description: "Listen on hostname" },
+    { long: "help", short: "h", description: "This!" },
+    { long: "config", description: "Use a different config file", default: "./config.json" },
+    { long: "services", description: "Use a different services directory" },
+    { long: "pages", description: "Use a different pages directory" },
+    { long: "hostname", description: "Listen on hostname" },
+    { long: "port", description: "Listen on port", type: "int" },
+    { long: "debug", description: "Enable debug mode (currently just adds extra information to response headers)" },
     { long: "secure", description: "Enable SSL", type: "bool" },
     { long: "cert", description: "Certificate file" },
     { long: "key", description: "Private key file" },
-    { long: "port", short: "p", description: "Listen on port", type: "int" },
-    { long: "services", description: "Use a different services directory" },
-    { long: "pages", description: "Use a different pages directory" },
 ];
 const args = parseArgs(process.argv.slice(2), argOptions);
 
-if (args.help.present) return console.log(`Usage: node . [OPTION]...\n\n  ${argOptions.map(i => `${[i.long ? `--${i.long}` : null, i.short ? `-${i.short}` : null].filter(i => i).join(", ").padEnd(25, " ")}${i.description || "???"}${i.default ? `, default: ${i.default}` : ""}`).join("\n  ")}`);
+if (args.help.present) return console.log(`Usage: ${process.argv0} . [OPTION]...\n\n  ${argOptions.map(i => `${[i.long ? `--${i.long}` : null, i.short ? `-${i.short}` : null].filter(i => i).join(", ").padEnd(25, " ")}${i.description || "???"}${i.default ? `, default: ${i.default}` : ""}`).join("\n  ")}`);
 
 // Load and watch config
 let config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
 fs.watch(args.config.value, () => {
-    log("INFO", "Reloading config");
+    log("INFO", "Reloading config (you might have to restart to apply certain configs)");
     try { config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8"))); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
 // Load and watch services
@@ -46,7 +47,8 @@ const proxy = new Proxy({
 
 // New proxy request (received data with HTTP header)
 proxy.on("request", (http, connection) => {
-    const hostname = http.getHeader("Host")?.split(":")[0];
+    const host = http.getHeader("Host");
+    const hostname = host?.split(":")[0];
     const address = connection.clientConnection.remoteAddress;
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
     const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
@@ -148,10 +150,23 @@ proxy.on("request", (http, connection) => {
         
         // Is first HTTP request on connection
         if (connection.firstRequest) {
-            connection.on("response", http => {
+            connection.on("response", response => {
                 // Modify response headers
                 if (service.modifiedResponseHeaders) {
-                    modifyHeaders(service.modifiedResponseHeaders, http, formatStringObject);
+                    modifyHeaders(service.modifiedResponseHeaders, response, formatStringObject);
+                }
+
+                // Added to debug weird Cloudflare caching issue
+                if (config.debug) {
+                    response.setHeader("X-YAP-Host", host);
+                    response.setHeader("X-YAP-Timestamp", new Date().toUTCString());
+                    response.setHeader("X-YAP-Method", http.method);
+                    response.setHeader("X-YAP-Protocol", http.protocol);
+                    response.setHeader("X-YAP-Target", http.target);
+                    response.setHeader("X-YAP-Headers", JSON.stringify(http.headers));
+                    response.setHeader("X-YAP-Connection-Requests", connection.requests);
+                    response.setHeader("X-YAP-Connection-Address", formattedAddress);
+                    response.setHeader("X-YAP-Connection-Timestamp", connection.connectionDate.toUTCString());
                 }
             });
 

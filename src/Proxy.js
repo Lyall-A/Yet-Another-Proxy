@@ -39,30 +39,33 @@ class Proxy extends EventEmitter {
                 if (connectionIndex >= 0) this.connections.splice(connectionIndex, 1);
             });
 
-            clientConnection.on("data", (data, http) => {
-                connection.emit("client-data", data, http);
+            connection.on("request", http => this.emit("request", http, connection));
 
-                if (http) {
-                    this.emit("request", http, connection);
-                    connection.firstRequest = false;
-                }
+            // Moved to proxyConnection.js
+            // clientConnection.on("data", (data, http) => {
+            //     connection.emit("client-data", data, http);
+
+            //     if (http) {
+            //         this.emit("request", http, connection);
+            //         connection.requests++;
+            //     }
                 
-                if (connection.state === 0) return connection.close();
-                if (connection.state > 0) connection.writeOrigin(http ? http.toBuffer() : data);
-            });
+            //     if (connection.state === 0) return connection.close();
+            //     if (connection.state > 0) connection.writeOrigin(http ? http.toBuffer() : data);
+            // });
 
-            clientConnection.on("close", () => {
-                connection.emit("client-close");
-                connection.close();
-            });
+            // clientConnection.on("close", () => {
+            //     connection.emit("client-close");
+            //     connection.close();
+            // });
 
-            clientConnection.on("error", err => {
-                // console.log(err);
-                connection.emit("client-error", err);
-                connection.close();
-            });
+            // clientConnection.on("error", err => {
+            //     // console.log(err);
+            //     connection.emit("client-error", err);
+            //     connection.close();
+            // });
 
-            clientConnection.on("drain", () => connection.originConnection.resume());
+            // clientConnection.on("drain", () => connection.originConnection.resume());
         });
     }
 

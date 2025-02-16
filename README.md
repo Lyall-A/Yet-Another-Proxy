@@ -20,6 +20,9 @@ The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.clo
 ## Usage
 * `node .` to start or `node . --help` for a list of optional arguments
 
+## Configuration
+* TODO
+
 ## Notes
 * If using Cloudflare, there is an issue with caching that can cause the response to be from a completely different service or path
 
