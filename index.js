@@ -42,7 +42,8 @@ const pages = initPages();
 const proxy = new Proxy({
     ssl: (args.secure.present ? args.secure.value : config.ssl) ? true : false,
     certFile: args.cert.value || config.cert,
-    keyFile: args.key.value || config.key
+    keyFile: args.key.value || config.key,
+    maxConnections: config.maxConnections
 });
 
 // New proxy request (received data with HTTP header)
