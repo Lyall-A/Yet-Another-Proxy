@@ -30,10 +30,11 @@ class Proxy extends EventEmitter {
         this.server.on(options.ssl ? "secureConnection" : "connection", socket => {
             const clientConnection = new Connection(socket);
             if (!clientConnection.remoteAddress) return clientConnection.destroy(); // Weird thing that happens
-            if (options.maxConnections && this.connections.length >= options.maxConnections) return clientConnection.destroy(); // Over connection limit
 
             const connection = new ProxyConnection(clientConnection);
             this.connections.push(connection);
+
+            this.emit("connection", connection);
             
             connection.on("request", http => this.emit("request", http, connection));
 

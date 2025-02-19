@@ -42,8 +42,7 @@ const pages = initPages();
 const proxy = new Proxy({
     ssl: (args.secure.present ? args.secure.value : config.ssl) ? true : false,
     certFile: args.cert.value || config.cert,
-    keyFile: args.key.value || config.key,
-    maxConnections: config.maxConnections
+    keyFile: args.key.value || config.key
 });
 
 // New proxy request (received data with HTTP header)
@@ -234,6 +233,15 @@ proxy.on("request", (http, connection) => {
     if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
 });
 
+proxy.on("connection", connection => {
+    log("DEBUG", `${proxy.connections.length} connection(s): ${proxy.connections.map(i => i.clientConnection.remoteAddress).join(", ")}`);
+    if (config.maxConnections && proxy.connections.length > config.maxConnections) {
+        // Over connection limit
+        const connectionLimitPage = formatPage("connectionLimit");
+        return connection.bypass(503, "Service Unavailable", [["Retry-After", 1], ...(connectionLimitPage ? [["Content-Type", "text/html"]] : [])], connectionLimitPage);
+    }
+});
+
 proxy.listen(args.port.value || config.port || (config.ssl ? 443 : 80), args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
 // Functions
@@ -304,7 +312,7 @@ function initPages() {
     }).files;
 }
 
-function formatPage(page, formatStringObject) {
+function formatPage(page, formatStringObject = { }) {
     return formatString(pages.find(i => i.page === page)?.data || "", formatStringObject);
 }
 

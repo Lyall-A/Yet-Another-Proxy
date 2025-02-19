@@ -6,13 +6,15 @@
     "ssl": false,
     "cert": "certificate.crt",
     "key": "private.key",
-    "logLevels": ["INFO", "ERROR", "WARN"],
+    "logLevels": ["INFO", "ERROR", "WARN", "DEBUG"],
     "includeTimestamp": true,
+    "maxConnections": 100,
     "pagesLocation": "pages",
     "pageLocations": {
         "authentication": "authentication.html",
         "unknownHost": "unknown-host.html",
-        "bypassTest": "bypass-test.html"
+        "bypassTest": "bypass-test.html",
+        "connectionLimit": "connection-limit-reached.html"
     },
     "servicesLocation": "example_services",
     "realIPHeaders": [
