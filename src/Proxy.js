@@ -40,7 +40,10 @@ class Proxy extends EventEmitter {
 
             connection.on("close", () => {
                 const connectionIndex = this.connections.findIndex(i => i === connection);
-                if (connectionIndex >= 0) this.connections.splice(connectionIndex, 1);
+                if (connectionIndex >= 0) {
+                    this.connections.splice(connectionIndex, 1);
+                    this.emit("close", connection);
+                }
             });
         });
     }

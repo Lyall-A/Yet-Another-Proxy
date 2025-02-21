@@ -3,3 +3,4 @@ services
 *.crt
 *.key
 *.csr
+*.pem

@@ -40,7 +40,7 @@ const pages = initPages();
 
 // Create proxy
 const proxy = new Proxy({
-    ssl: (args.secure.present ? args.secure.value : config.ssl) ? true : false,
+    ssl: args.secure.present ? (args.secure.value === false ? false : true) : config.ssl,
     certFile: args.cert.value || config.cert,
     keyFile: args.key.value || config.key
 });
@@ -240,6 +240,10 @@ proxy.on("connection", connection => {
         const connectionLimitPage = formatPage("connectionLimit");
         return connection.bypass(503, "Service Unavailable", [["Retry-After", 1], ...(connectionLimitPage ? [["Content-Type", "text/html"]] : [])], connectionLimitPage);
     }
+});
+
+proxy.on("close", connection => {
+    log("DEBUG", `Closed`);
 });
 
 proxy.listen(args.port.value || config.port || (config.ssl ? 443 : 80), args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
