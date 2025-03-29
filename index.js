@@ -198,12 +198,13 @@ proxy.on("request", (http, connection) => {
             return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
         }
 
+        
         // URL bypassed
         if (service.urlBypassed) {
             const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
             if (urlBypassed) {
                 if (urlBypassed.service) {
-                    const urlBypassedService = services.find(i => i.name === urlBypassed.service);
+                    const urlBypassedService = typeof urlBypassed.service === "string" ? services.find(i => i.name === urlBypassed.service) : urlBypassed.service;
                     if (!urlBypassedService) return;
                     return assignService(urlBypassedService);
                 } else {
@@ -216,7 +217,7 @@ proxy.on("request", (http, connection) => {
                 }
             }
         }
-
+        
         if (service.redirect) {
             // Redirect
             return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
