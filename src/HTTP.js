@@ -15,7 +15,7 @@ class HTTP {
             this.headersString = headersString;
             this.rawData = data.subarray(data.indexOf(HTTP.delimiter) + HTTP.delimiter.length);
             
-            this.startLine = `${method} ${target} ${protocol}`;
+            // this.startLine = `${method} ${target} ${protocol}`;
             this.parseHeaders();
             this.parseCookies();
         } else if (this.isResponse()) {
@@ -30,7 +30,7 @@ class HTTP {
             this.headersString = headersString;
             this.rawData = data.subarray(data.indexOf(HTTP.delimiter) + HTTP.delimiter.length);
 
-            this.startLine = `${protocol} ${statusCode} ${statusMessage}`;
+            // this.startLine = `${protocol} ${statusCode} ${statusMessage}`;
             this.parseHeaders();
             this.parseCookies();
         } else {
@@ -41,7 +41,7 @@ class HTTP {
 
     toBuffer() {
         return Buffer.concat([
-            Buffer.from(this.startLine),
+            Buffer.from(this.isRequest() ? `${this.method} ${this.target} ${this.protocol}` : `${this.protocol} ${this.statusCode} ${this.statusMessage}`),
             Buffer.from("\r\n"),
             Buffer.from(this.stringifyHeaders()),
             Buffer.from(HTTP.delimiter),

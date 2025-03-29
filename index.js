@@ -66,16 +66,10 @@ proxy.on("request", (http, connection) => {
     if (http.protocol !== "HTTP/1.1") return;
     if (!hostname) return;
 
-    for (const service of services) {
+    function assignService(service) {
         const formattedServiceName = `${hostname} (${service.name || "Unknown service"})`;
 
         formatStringObject.service = service;
-
-        if (!service.hosts.some(i =>
-            i === hostname ||
-            (i.startsWith(".") && hostname.endsWith(i)) ||
-            (i.endsWith(".") && hostname.startsWith(i))
-        )) continue;
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
@@ -147,7 +141,7 @@ proxy.on("request", (http, connection) => {
         }
 
         log("DEBUG", `${formattedAddress} went to ${formattedServiceName}, method: ${http.method}, target: ${http.target}, headers: ${JSON.stringify(http.headers)}`);
-        
+
         // Is first HTTP request on connection
         if (connection.firstRequest) {
             connection.on("response", response => {
@@ -194,6 +188,11 @@ proxy.on("request", (http, connection) => {
             modifyHeaders(service.modifiedRequestHeaders, http, formatStringObject);
         }
 
+        // Force target
+        if (service.forceTarget) {
+            http.target = service.forceTarget;
+        }
+
         // Disallow robots
         if (service.disallowRobots && http.target === "/robots.txt") {
             return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
@@ -202,12 +201,20 @@ proxy.on("request", (http, connection) => {
         // URL bypassed
         if (service.urlBypassed) {
             const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
-            if (urlBypassed) return connection.bypass(
-                urlBypassed.status || 200,
-                urlBypassed.statusText || "OK",
-                urlBypassed.headers || [["Content-Type", urlBypassed.page ? "text/html" : "text/plain"]],
-                urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
-            );
+            if (urlBypassed) {
+                if (urlBypassed.service) {
+                    const urlBypassedService = services.find(i => i.name === urlBypassed.service);
+                    if (!urlBypassedService) return;
+                    return assignService(urlBypassedService);
+                } else {
+                    return connection.bypass(
+                        urlBypassed.status || 200,
+                        urlBypassed.statusText || "OK",
+                        urlBypassed.headers || [["Content-Type", urlBypassed.page ? "text/html" : "text/plain"]],
+                        urlBypassed.page ? formatPage(urlBypassed.page, formatStringObject) : urlBypassed.data
+                    );
+                }
+            }
         }
 
         if (service.redirect) {
@@ -223,8 +230,16 @@ proxy.on("request", (http, connection) => {
                 connectionOptions: service.connectionOptions
             });
         }
+    }
 
-        return;
+    for (const service of services) {
+        if (!service.hosts.some(i =>
+            i === hostname ||
+            (i.startsWith(".") && hostname.endsWith(i)) ||
+            (i.endsWith(".") && hostname.startsWith(i))
+        )) continue;
+
+        return assignService(service);
     }
 
     log("LOG", `'${formattedAddress}' went to unknown host '${hostname}'`);
@@ -316,7 +331,7 @@ function initPages() {
     }).files;
 }
 
-function formatPage(page, formatStringObject = { }) {
+function formatPage(page, formatStringObject = {}) {
     return formatString(pages.find(i => i.page === page)?.data || "", formatStringObject);
 }
 
