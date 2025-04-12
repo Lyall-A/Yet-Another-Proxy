@@ -206,7 +206,7 @@ proxy.on("request", (http, connection) => {
         }
 
         // Redirect public to local if possible
-        if (publicIp === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", formatString(service.localHostname, formatStringObject)]]);
+        if (publicIp === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${config.ssl ? "https" : "http"}://${formatString(service.localHostname, formatStringObject)}:${config.port}${http.target}`]]);
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {
