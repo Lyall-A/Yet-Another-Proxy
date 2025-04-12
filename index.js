@@ -206,6 +206,7 @@ proxy.on("request", (http, connection) => {
         }
 
         // Redirect public to local if possible
+        console.log(publicIp === (realAddress || address), publicIp, realAddress, address, service.redirectPublicToLocal, service.localHostname, serviceHost.endsWith("."), formatString(service.localHostname, formatStringObject));
         if (publicIp === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", formatString(service.localHostname, formatStringObject)]]);
 
         // Modify request headers
