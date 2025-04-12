@@ -10,7 +10,7 @@ const DirectoryMonitor = require("./utils/DirectoryMonitor");
 const parseService = require("./utils/parseService");
 const parseConfig = require("./utils/parseConfig");
 const parseArgs = require("./utils/parseArgs");
-const getPublicIp = require("./utils/getPublicIp");
+const getPublicAddress = require("./utils/getPublicAddress");
 const modifyHeaders = require("./utils/modifyHeaders");
 const Proxy = require("./src/Proxy");
 
@@ -41,20 +41,20 @@ const services = initServices();
 // Load and watch pages
 const pages = initPages();
 
-let publicIp = config.publicIp || null;
+let publicAddress = config.publicAddress || null;
 
-if (config.retrievePublicIp) {
-    (async function updatePublicIp() {
-        await getPublicIp(config.publicIpApi).then(newPublicIp => {
-            if (publicIp !== newPublicIp) {
-                publicIp = newPublicIp;
-                log("INFO", `Public IP changed to '${publicIp}'`);
+if (config.retrievePublicAddress) {
+    (async function updatePublicAddress() {
+        await getPublicAddress(config.publicAddressApi).then(newPublicAddress => {
+            if (publicAddress !== newPublicAddress) {
+                publicAddress = newPublicAddress;
+                log("INFO", `Public address changed to '${publicAddress}'`);
             }
         }).catch(err => {
-            log("ERROR", `Failed to get public IP: ${err}`);
+            log("ERROR", `Failed to get public address: ${err}`);
         });
 
-        if (config.retrievePublicIpInterval) setTimeout(updatePublicIp, config.retrievePublicIpInterval * 1000);
+        if (config.retrievePublicAddressInterval) setTimeout(updatePublicAddress, config.retrievePublicAddressInterval * 1000);
     })();
 }
 
@@ -95,7 +95,7 @@ proxy.on("request", (http, connection) => {
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
-            if (!matchAddress(address, service.whitelistedAddresses)) {
+            if (!service.whitelistPublicAddress || publicAddress !== address && !matchAddress(address, service.whitelistedAddresses)) {
                 log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                 return;
             }
@@ -206,7 +206,7 @@ proxy.on("request", (http, connection) => {
         }
 
         // Redirect public to local if possible
-        if (publicIp === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${config.ssl ? "https" : "http"}://${formatString(service.localHostname, formatStringObject)}:${config.port}${http.target}`]]);
+        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${config.ssl ? "https" : "http"}://${formatString(service.localHostname, formatStringObject)}:${config.port}${http.target}`]]);
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {
@@ -222,7 +222,6 @@ proxy.on("request", (http, connection) => {
         if (service.disallowRobots && http.target === "/robots.txt") {
             return connection.bypass(200, "OK", [["Content-Type", "text/plain"]], "User-agent: *\nDisallow: /");
         }
-
         
         // URL bypassed
         if (service.urlBypassed) {

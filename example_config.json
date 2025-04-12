@@ -9,10 +9,10 @@
     "logLevels": ["INFO", "ERROR", "WARN"],
     "includeTimestamp": true,
     "maxConnections": null,
-    "publicIp": null,
-    "retrievePublicIp": true,
-    "retrievePublicIpInterval": 3600,
-    "publicIpApi": {
+    "publicAddress": null,
+    "retrievePublicAddress": true,
+    "retrievePublicAddressInterval": 3600,
+    "publicAddressApi": {
         "ssl": true,
         "host": "api.ipify.org",
         "port": null,
@@ -57,6 +57,7 @@
             "172.16.0.0/12",
             "192.168.0.0/16"
         ],
+        "whitelistPublicAddress": true,
         "whitelistedAddresses": [
             "::1",
             "127.0.0.1",

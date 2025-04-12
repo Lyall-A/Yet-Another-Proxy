@@ -1,7 +1,7 @@
 const http = require("http");
 const https = require("https");
 
-function getPublicIp(options = { }) {
+function getPublicAddress(options = { }) {
     return new Promise((resolve, reject) => {
         const req = (options.ssl ? https : http).request({
             host: options.host,
@@ -16,16 +16,16 @@ function getPublicIp(options = { }) {
                 const dataBuffer = Buffer.concat(dataArray);
                 const dataString = dataBuffer.toString();
 
-                if (!dataString) return reject("Response from IP API is empty");
+                if (!dataString) return reject("Response is empty");
 
                 if (options.json) {
                     try {
                         const dataJson = JSON.parse(dataString);
-                        const publicIp = options.json.split(".").reduce((acc, key) => acc && acc[key] !== undefined ? acc[key] : undefined, dataJson);
-                        if (!publicIp) reject(`Public IP not found in JSON response from IP API: '${dataString}'`);
-                        resolve(publicIp);
+                        const publicAddress = options.json.split(".").reduce((acc, key) => acc && acc[key] !== undefined ? acc[key] : undefined, dataJson);
+                        if (!publicAddress) reject(`Public address not found in JSON response: '${dataString}'`);
+                        resolve(publicAddress);
                     } catch (err) {
-                        reject(`Failed to parse response from IP API: '${dataString}'`);
+                        reject(`Failed to parse response: '${dataString}'`);
                     }
                 } else resolve(dataString);
             });
@@ -42,4 +42,4 @@ function getPublicIp(options = { }) {
     });
 }
 
-module.exports = getPublicIp;
+module.exports = getPublicAddress;
