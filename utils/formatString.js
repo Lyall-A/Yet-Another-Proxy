@@ -3,7 +3,7 @@ function formatString(string, object = {}) {
         if (match.startsWith("\\")) return match.slice(1);
 
         if (objectGroup) {
-            return objectGroup.split(".").reduce((acc, key) => acc && acc[key], object) ?? "";
+            return objectGroup.split(".").reduce((acc, key) => acc && acc[key] !== undefined ? acc[key] : undefined, object) ?? "";
         }
 
         if (evalGroup) {

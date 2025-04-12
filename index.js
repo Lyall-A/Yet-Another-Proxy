@@ -4,21 +4,24 @@ const path = require("path");
 const formatString = require("./utils/formatString");
 const matchAddress = require("./utils/matchAddress");
 const matchUrl = require("./utils/matchUrl");
+const matchPassword = require("./utils/matchPassword");
+const matchHost = require("./utils/matchHost");
 const DirectoryMonitor = require("./utils/DirectoryMonitor");
 const parseService = require("./utils/parseService");
 const parseConfig = require("./utils/parseConfig");
 const parseArgs = require("./utils/parseArgs");
+const getPublicIp = require("./utils/getPublicIp");
 const modifyHeaders = require("./utils/modifyHeaders");
 const Proxy = require("./src/Proxy");
 
 const argOptions = [
-    { long: "help", short: "h", description: "This!" },
+    { long: "help", short: "h", description: "This help menu" },
     { long: "config", description: "Use a different config file", default: "./config.json" },
     { long: "services", description: "Use a different services directory" },
     { long: "pages", description: "Use a different pages directory" },
-    { long: "hostname", description: "Listen on hostname" },
+    { long: "hostname", description: "Listen on hostname", default: "0.0.0.0" },
     { long: "port", description: "Listen on port", type: "int" },
-    { long: "debug", description: "Enable debug mode (currently just adds extra information to response headers)" },
+    { long: "debug", description: "Enable debug mode (currently only adds extra information to response headers)" },
     { long: "secure", description: "Enable SSL", type: "bool" },
     { long: "cert", description: "Certificate file" },
     { long: "key", description: "Private key file" },
@@ -37,6 +40,23 @@ fs.watch(args.config.value, () => {
 const services = initServices();
 // Load and watch pages
 const pages = initPages();
+
+let publicIp = config.publicIp || null;
+
+if (config.retrivePublicIp) {
+    (async function updatePublicIp() {
+        await getPublicIp(config.publicIpApi).then(newPublicIp => {
+            if (publicIp !== newPublicIp) {
+                publicIp = newPublicIp;
+                log("INFO", `Public IP changed to '${publicIp}'`);
+            }
+        }).catch(err => {
+            log("ERROR", `Failed to get public IP: ${err}`);
+        });
+
+        if (config.retrivePublicIpInterval) setTimeout(updatePublicIp, config.retrivePublicIpInterval * 1000);
+    })();
+}
 
 // Create proxy
 const proxy = new Proxy({
@@ -68,8 +88,10 @@ proxy.on("request", (http, connection) => {
 
     function assignService(service) {
         const formattedServiceName = `${hostname} (${service.name || "Unknown service"})`;
+        const serviceHost = matchHost(service.hosts, hostname);
 
         formatStringObject.service = service;
+        formatStringObject.serviceHost = serviceHost;
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
@@ -102,11 +124,11 @@ proxy.on("request", (http, connection) => {
                         const [username, password] = decodedAuthorization.split(":");
                         if (service.users?.length) {
                             const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                            if (user && user.password === password) {
+                            if (user && matchPassword(user.password, service.passwordKey, password)) {
                                 passedAuth = true;
                                 authedUsername = user.username;
                             }
-                        } else if (service.password === password) passedAuth = true;
+                        } else if (matchPassword(service.password, service.passwordKey, password)) passedAuth = true;
                     }
                     if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
                 } else if (service.authenticationType === "cookies") {
@@ -119,12 +141,12 @@ proxy.on("request", (http, connection) => {
                             if (usernameCookie) {
                                 const username = decodeURIComponent(usernameCookie);
                                 const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                                if (user && user.password === password) {
+                                if (user && matchPassword(user.password, service.passwordKey, password)) {
                                     passedAuth = true;
                                     authedUsername = user.username;
                                 }
                             }
-                        } else if (service.password === password) passedAuth = true;
+                        } else if (matchPassword(service.password, service.passwordKey, password)) passedAuth = true;
                     }
                     if (!passedAuth) {
                         const authPage = formatPage("authentication", formatStringObject);
@@ -183,6 +205,9 @@ proxy.on("request", (http, connection) => {
             });
         }
 
+        // Redirect public to local if possible
+        if (publicIp === address && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", formatString(service.localHostname, formatStringObject)]]);
+
         // Modify request headers
         if (service.modifiedRequestHeaders) {
             modifyHeaders(service.modifiedRequestHeaders, http, formatStringObject);
@@ -220,7 +245,7 @@ proxy.on("request", (http, connection) => {
         
         if (service.redirect) {
             // Redirect
-            return connection.bypass(302, "Found", [["Location", formatString(service.redirect, formatStringObject)]]);
+            return connection.bypass(307, "Temporary Redirect", [["Location", formatString(service.redirect, formatStringObject)]]);
         }
         else if (service.originHost && service.originPort) {
             // Proxy
@@ -234,11 +259,7 @@ proxy.on("request", (http, connection) => {
     }
 
     for (const service of services) {
-        if (!service.hosts.some(i =>
-            i === hostname ||
-            (i.startsWith(".") && hostname.endsWith(i)) ||
-            (i.endsWith(".") && hostname.startsWith(i))
-        )) continue;
+        if (!matchHost(service.hosts, hostname)) continue;
 
         return assignService(service);
     }

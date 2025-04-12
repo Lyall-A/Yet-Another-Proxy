@@ -9,6 +9,18 @@
     "logLevels": ["INFO", "ERROR", "WARN"],
     "includeTimestamp": true,
     "maxConnections": 100,
+    "publicIp": null,
+    "retrievePublicIp": true,
+    "retrievePublicIpInterval": 3600,
+    "publicIpApi": {
+        "ssl": true,
+        "host": "api.ipify.org",
+        "port": null,
+        "method": null,
+        "path": null,
+        "headers": null,
+        "json": null
+    },
     "pagesLocation": "pages",
     "pageLocations": {
         "authentication": "authentication.html",
@@ -22,20 +34,23 @@
         "CF-Connecting-IP"
     ],
     "defaultServiceOptions": {
+        "redirectPublicToLocal": true,
+        "localHostname": "{{serviceHost}}localhost",
         "disallowRobots": true,
         "usernameCookie": "YAP-Username",
         "passwordCookie": "YAP-Password",
         "cookieAge": 604800,
         "authenticationType": "cookies",
         "users": [],
-        "password": "password",
+        "password": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+        "passwordKey": null,
         "modifiedRequestHeaders": [
             ["Host", "{{service.originHost}}:{{service.originPort}}"]
         ],
         "modifiedResponseHeaders": [
             ["X-YAP-Origin-Host", "{{service.originHost}}:{{service.originPort}}"]
         ],
-        "authenticationBypassedAddresses": [
+        "authenticationBypassedAddresses2": [
             "::1",
             "127.0.0.1",
             "10.0.0.0/8",
