@@ -95,7 +95,11 @@ proxy.on("request", (http, connection) => {
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
-            if (!service.whitelistPublicAddress || publicAddress !== address && !matchAddress(address, service.whitelistedAddresses)) {
+            if (
+                !(service.publicAddressBypassWhitelist && (publicAddress === address || (realAddress && publicAddress === realAddress))) &&
+                !matchAddress(address, service.whitelistedAddresses) &&
+                !(realAddress && matchAddress(realAddress, service.whitelistedAddresses))
+            ) {
                 log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                 return;
             }
@@ -103,7 +107,10 @@ proxy.on("request", (http, connection) => {
 
         // Blacklist
         if (service.blacklistedAddresses?.length) {
-            if (matchAddress(address, service.blacklistedAddresses)) {
+            if (
+                matchAddress(address, service.blacklistedAddresses) ||
+                (realAddress && matchAddress(realAddress, service.blacklistedAddresses))
+            ) {
                 log("WARN", `Blacklisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                 return;
             }
@@ -113,7 +120,13 @@ proxy.on("request", (http, connection) => {
         if (service.authentication) {
             let passedAuth = false;
             let authedUsername = null;
-            const bypassedAuth = service.authenticationBypassedAddresses?.length ? (matchAddress(address, service.authenticationBypassedAddresses) || (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses)) ? true : false) : false;
+            const bypassedAuth = !!(
+                (service.publicAddressBypassAuthentication && (publicAddress === address || (realAddress && publicAddress === realAddress))) ||
+                (service.authenticationBypassedAddresses?.length && (
+                    matchAddress(address, service.authenticationBypassedAddresses) ||
+                    (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses))
+                ))
+            );
 
             if (!bypassedAuth) {
                 if (service.authenticationType === "basic") {

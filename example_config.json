@@ -36,6 +36,8 @@
     "defaultServiceOptions": {
         "redirectPublicToLocal": true,
         "localHostname": "{{serviceHost}}localhost",
+        "publicAddressBypassAuthentication": true,
+        "publicAddressBypassWhitelist": true,
         "disallowRobots": true,
         "usernameCookie": "YAP-Username",
         "passwordCookie": "YAP-Password",
@@ -50,14 +52,13 @@
         "modifiedResponseHeaders": [
             ["X-YAP-Origin-Host", "{{service.originHost}}:{{service.originPort}}"]
         ],
-        "authenticationBypassedAddresses2": [
+        "authenticationBypassedAddresses": [
             "::1",
             "127.0.0.1",
             "10.0.0.0/8",
             "172.16.0.0/12",
             "192.168.0.0/16"
         ],
-        "whitelistPublicAddress": true,
         "whitelistedAddresses": [
             "::1",
             "127.0.0.1",
