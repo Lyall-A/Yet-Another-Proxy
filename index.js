@@ -95,7 +95,6 @@ proxy.on("request", (http, connection) => {
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
-            console.log(!service.whitelistPublicAddress || publicAddress !== address, !matchAddress(address, service.whitelistedAddresses), publicAddress, address);
             if (!service.whitelistPublicAddress || publicAddress !== address && !matchAddress(address, service.whitelistedAddresses)) {
                 log("WARN", `Un-whitelisted address '${formattedAddress}' attempted to connect to '${formattedServiceName}'`);
                 return;
