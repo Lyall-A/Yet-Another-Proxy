@@ -43,7 +43,7 @@ const pages = initPages();
 
 let publicIp = config.publicIp || null;
 
-if (config.retrivePublicIp) {
+if (config.retrievePublicIp) {
     (async function updatePublicIp() {
         await getPublicIp(config.publicIpApi).then(newPublicIp => {
             if (publicIp !== newPublicIp) {
@@ -54,7 +54,7 @@ if (config.retrivePublicIp) {
             log("ERROR", `Failed to get public IP: ${err}`);
         });
 
-        if (config.retrivePublicIpInterval) setTimeout(updatePublicIp, config.retrivePublicIpInterval * 1000);
+        if (config.retrievePublicIpInterval) setTimeout(updatePublicIp, config.retrievePublicIpInterval * 1000);
     })();
 }
 
@@ -206,7 +206,6 @@ proxy.on("request", (http, connection) => {
         }
 
         // Redirect public to local if possible
-        console.log(publicIp === (realAddress || address), publicIp, realAddress, address, service.redirectPublicToLocal, service.localHostname, serviceHost.endsWith("."), formatString(service.localHostname, formatStringObject));
         if (publicIp === (realAddress || address) && service.redirectPublicToLocal && service.localHostname && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", formatString(service.localHostname, formatStringObject)]]);
 
         // Modify request headers
