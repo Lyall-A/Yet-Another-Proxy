@@ -8,7 +8,7 @@
     "key": "privkey.pem",
     "logLevels": ["INFO", "ERROR", "WARN"],
     "includeTimestamp": true,
-    "maxConnections": 100,
+    "maxConnections": null,
     "publicIp": null,
     "retrievePublicIp": true,
     "retrievePublicIpInterval": 3600,
