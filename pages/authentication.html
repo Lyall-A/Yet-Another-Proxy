@@ -8,7 +8,7 @@
     <meta name="description" content="{{service.name}} requires authentication">
     <meta property="og:title" content="{{service.name}} requires authentication">
     <meta property="og:description" content="{{service.name}} requires authentication">
-    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/Lyall-A/Yet-Another-Proxy">
     <meta name="robots" content="noindex">
 
     <style>
@@ -183,7 +183,7 @@
             const password = document.getElementById("password");
 
             if (username) document.cookie = `{{service.usernameCookie}}=${encodeURIComponent(username.value)}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
-            document.cookie = `{{service.passwordCookie}}=${encodeURIComponent(password.value)}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
+            if (password) document.cookie = `{{service.passwordCookie}}=${encodeURIComponent(password.value)}; path=/${"{{service.cookieAge}}" ? `; max-age={{service.cookieAge}}` : ""}`;
             
             location.reload();
         }

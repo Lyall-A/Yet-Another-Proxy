@@ -3,16 +3,15 @@ A HTTP proxy based on the `Host` header (eg: `plex.example.org` > `localhost:324
 
 ## Features
 * Cookie authentication with [page](./pages/authentication.html)
-* Basic authentication
+* HTTP Basic authentication
 * Authentication bypass depending on IP/CIDR
+* Redirect to local host if accessing from same network
 * Disallow robots
-* Display real IP
-* Whitelist IP/CIDR
-* Blacklist IP/CIDR
+* Whitelist IP/CIDR (including real IP)
+* Blacklist IP/CIDR (including real IP)
 * Redirections
 * URL bypass
 * Modify request and response headers
-* Can be imported as JS module
 * Easy to configure
 
 The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.cloudflare.com/ips) and local IP's by default

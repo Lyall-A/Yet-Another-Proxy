@@ -89,9 +89,11 @@ proxy.on("request", (http, connection) => {
     function assignService(service) {
         const formattedServiceName = `${hostname} (${service.name || "Unknown service"})`;
         const serviceHost = matchHost(service.hosts, hostname);
+        const user = { };
 
         formatStringObject.service = service;
         formatStringObject.serviceHost = serviceHost;
+        formatStringObject.user = user;
 
         // Whitelist
         if (service.whitelistedAddresses?.length) {
@@ -115,11 +117,9 @@ proxy.on("request", (http, connection) => {
                 return;
             }
         }
-
+        
         // Authentication
         if (service.authentication) {
-            let passedAuth = false;
-            let authedUsername = null;
             const bypassedAuth = !!(
                 (service.publicAddressBypassAuthentication && (publicAddress === address || (realAddress && publicAddress === realAddress))) ||
                 (service.authenticationBypassedAddresses?.length && (
@@ -127,6 +127,7 @@ proxy.on("request", (http, connection) => {
                     (realAddress && matchAddress(realAddress, service.authenticationBypassedAddresses))
                 ))
             );
+            let passwordMatch = null;
 
             if (!bypassedAuth) {
                 if (service.authenticationType === "basic") {
@@ -136,14 +137,13 @@ proxy.on("request", (http, connection) => {
                         const decodedAuthorization = Buffer.from(encodedAuthorization[1], "base64").toString();
                         const [username, password] = decodedAuthorization.split(":");
                         if (service.users?.length) {
-                            const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                            if (user && matchPassword(user.password, service.passwordKey, password)) {
-                                passedAuth = true;
-                                authedUsername = user.username;
+                            const foundUser = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
+                            if (foundUser && (passwordMatch = matchPassword(foundUser.password, service.passwordKey, password))) {
+                                Object.assign(user, foundUser);
                             }
-                        } else if (matchPassword(service.password, service.passwordKey, password)) passedAuth = true;
+                        } else passwordMatch = matchPassword(service.password, service.passwordKey, password);
                     }
-                    if (!passedAuth) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
+                    if (!passwordMatch) return connection.bypass(401, "Unauthorized", [["WWW-Authenticate", "Basic realm=\"Proxy Authorization\", charset=\"UTF-8\""]]);
                 } else if (service.authenticationType === "cookies") {
                     // Cookie authentication
                     const usernameCookie = http.cookies[service.usernameCookie];
@@ -153,15 +153,14 @@ proxy.on("request", (http, connection) => {
                         if (service.users?.length) {
                             if (usernameCookie) {
                                 const username = decodeURIComponent(usernameCookie);
-                                const user = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
-                                if (user && matchPassword(user.password, service.passwordKey, password)) {
-                                    passedAuth = true;
-                                    authedUsername = user.username;
+                                const foundUser = service.users.find(i => i?.username?.toLowerCase() === username?.toLowerCase());
+                                if (foundUser && (passwordMatch = matchPassword(foundUser.password, service.passwordKey, password))) {
+                                    Object.assign(user, foundUser);
                                 }
                             }
-                        } else if (matchPassword(service.password, service.passwordKey, password)) passedAuth = true;
+                        } else passwordMatch = matchPassword(service.password, service.passwordKey, password);
                     }
-                    if (!passedAuth) {
+                    if (!passwordMatch) {
                         const authPage = formatPage("authentication", formatStringObject);
                         if (authPage) return connection.bypass(401, "Unauthorized", [["Content-Type", "text/html"]], formatPage("authentication", formatStringObject));
                         return connection.bypass(401, "Unauthorized");
@@ -169,8 +168,8 @@ proxy.on("request", (http, connection) => {
                 }
             }
 
-            if (!passedAuth && !bypassedAuth) return; else {
-                if (passedAuth) log("LOG", `'${formattedAddress}' authenticated${authedUsername ? ` as '${authedUsername}'` : ""} for '${formattedServiceName}'`);
+            if (!passwordMatch && !bypassedAuth) return; else {
+                if (passwordMatch) log("LOG", `'${formattedAddress}' authenticated${user?.username ? ` as '${user?.username}'` : ""} for '${formattedServiceName}'`);
                 if (bypassedAuth) log("WARN", `'${formattedAddress}' bypassed authentication for '${formattedServiceName}'`);
             }
         }
@@ -183,6 +182,15 @@ proxy.on("request", (http, connection) => {
                 // Modify response headers
                 if (service.modifiedResponseHeaders) {
                     modifyHeaders(service.modifiedResponseHeaders, response, formatStringObject);
+                }
+                
+                // Replace plain-text password with hashed password
+                if (service.hashCookiePassword && http.cookies[service.passwordCookie]) {
+                    const password = decodeURIComponent(http.cookies[service.passwordCookie]);
+                    const hashedPassword = user.password || service.password;
+                    if (matchPassword(hashedPassword, service.passwordKey, password) === 2) {
+                        response.addHeader("Set-Cookie", `${service.passwordCookie}=${encodeURIComponent(hashedPassword)}; Path=/; HttpOnly${service.cookieAge ? `; Max-Age=${service.cookieAge}` : ""}`);
+                    }
                 }
 
                 // Added to debug weird Cloudflare caching issue

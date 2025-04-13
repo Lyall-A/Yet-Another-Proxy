@@ -41,6 +41,7 @@
         "disallowRobots": true,
         "usernameCookie": "YAP-Username",
         "passwordCookie": "YAP-Password",
+        "hashCookiePassword": true,
         "cookieAge": 604800,
         "authenticationType": "cookies",
         "users": [],
