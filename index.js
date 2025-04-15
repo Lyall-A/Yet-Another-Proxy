@@ -41,8 +41,20 @@ const services = initServices();
 // Load and watch pages
 const pages = initPages();
 
+// Apply command arguments to config
+if (args.services.present) config.servicesLocation = args.services.value;
+if (args.pages.present) config.pagesLocation = args.pages.value;
+if (args.hostname.present) config.hostname = args.hostname.value;
+if (args.port.present) config.port = args.port.value;
+if (args.debug.present) config.debug = args.debug.value;
+if (args.secure.present) config.ssl = args.secure.value;
+if (args.cert.present) config.cert = args.cert.value;
+if (args.key.present) config.key = args.key.value;
+
+// Variables
 let publicAddress = config.publicAddress || null;
 
+// Retrieve public address
 if (config.retrievePublicAddress) {
     (async function updatePublicAddress() {
         await getPublicAddress(config.publicAddressApi).then(newPublicAddress => {
@@ -60,9 +72,9 @@ if (config.retrievePublicAddress) {
 
 // Create proxy
 const proxy = new Proxy({
-    ssl: args.secure.present ? (args.secure.value === false ? false : true) : config.ssl,
-    certFile: args.cert.value || config.cert,
-    keyFile: args.key.value || config.key
+    ssl: config.ssl,
+    certFile: config.cert,
+    keyFile: config.key
 });
 
 // New proxy request (received data with HTTP header)
@@ -303,12 +315,12 @@ proxy.on("close", connection => {
     log("DEBUG", `Closed`);
 });
 
-proxy.listen(args.port.value || config.port || (config.ssl ? 443 : 80), args.hostname.value || config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
+proxy.listen(config.port || (config.ssl ? 443 : 80), config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
 
 // Functions
 
 function initServices() {
-    return new DirectoryMonitor(args.services.value || config.servicesLocation, {
+    return new DirectoryMonitor(config.servicesLocation, {
         loaded: files => log("INFO", `Loaded ${files.length} service${files.length > 1 ? "s" : ""}`),
         loadError: (err, filePath) => log("ERROR", `Error loading service '${filePath}', ${err}`),
         reloadError: (err, filePath) => log("ERROR", `Error reloading service '${filePath}', ${err}`),
@@ -350,8 +362,8 @@ function initServices() {
 }
 
 function initPages() {
-    if (!args.pages.value && !config.pagesLocation) return;
-    return new DirectoryMonitor(args.pages.value || config.pagesLocation, {
+    if (!config.pagesLocation) return;
+    return new DirectoryMonitor(config.pagesLocation, {
         depth: 0,
         loaded: files => log("INFO", `Loaded ${files.length} page${files.length > 1 ? "s" : ""}`),
         loadError: (err, filePath) => log("ERROR", `Error loading page '${filePath}', ${err}`),
