@@ -239,7 +239,7 @@ proxy.on("request", (http, connection) => {
         }
 
         // Redirect public to local if possible
-        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localRedirectHost && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${formatString(`${service.localRedirectProtocol ?? (config.ssl ? "https" : "http")}${service.localRedirectHost}:${service.localRedirectPort ?? config.port}${service.localRedirectPath ?? ""}`, formatStringObject)}${!service.localRedirectPath ? http.target : ""}`]]);
+        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localRedirectHost && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${formatString(`${service.localRedirectProtocol ?? (config.ssl ? "https" : "http")}://${service.localRedirectHost}:${service.localRedirectPort ?? config.port}${service.localRedirectPath ?? ""}`, formatStringObject)}${!service.localRedirectPath ? http.target : ""}`]]);
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {
