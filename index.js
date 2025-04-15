@@ -20,7 +20,9 @@ const argOptions = [
     { long: "services", description: "Use a different services directory" },
     { long: "pages", description: "Use a different pages directory" },
     { long: "hostname", description: "Listen on hostname", default: "0.0.0.0" },
+    { long: "hostname2", description: "Listen on hostname (SSL)" },
     { long: "port", description: "Listen on port", type: "int" },
+    { long: "port2", description: "Listen on port (SSL), define with SSL enabled to run a TCP and SSL server", type: "int" },
     { long: "debug", description: "Enable debug mode (currently only adds extra information to response headers)" },
     { long: "secure", description: "Enable SSL", type: "bool" },
     { long: "cert", description: "Certificate file" },
@@ -45,9 +47,11 @@ const pages = initPages();
 if (args.services.present) config.servicesLocation = args.services.value;
 if (args.pages.present) config.pagesLocation = args.pages.value;
 if (args.hostname.present) config.hostname = args.hostname.value;
+if (args.hostname2.present) config.sslHostname = args.hostname2.value;
 if (args.port.present) config.port = args.port.value;
+if (args.port2.present) config.sslPort = args.port2.value;
 if (args.debug.present) config.debug = args.debug.value;
-if (args.secure.present) config.ssl = args.secure.value;
+if (args.secure.present) config.ssl = true;
 if (args.cert.present) config.cert = args.cert.value;
 if (args.key.present) config.key = args.key.value;
 
@@ -70,15 +74,45 @@ if (config.retrievePublicAddress) {
     })();
 }
 
-// Create proxy
-const proxy = new Proxy({
+// Start proxy server
+setupProxy({
     ssl: config.ssl,
-    certFile: config.cert,
-    keyFile: config.key
+    cert: config.cert,
+    key: config.key,
+    port: (config.ssl ? config.sslPort : null) || config.port,
+    hostname: (config.ssl ? config.sslHostname : null) || config.hostname,
 });
 
-// New proxy request (received data with HTTP header)
-proxy.on("request", (http, connection) => {
+if (config.ssl && config.sslPort && config.port) {
+    // Start secondary proxy server
+    setupProxy({
+        ssl: false,
+        port: config.port,
+        hostname: config.hostname
+    });
+}
+
+// Functions
+
+function setupProxy(options = { }) {
+    const proxy = new Proxy({
+        ssl: options.ssl,
+        certFile: options.cert,
+        keyFile: options.key
+    });
+    
+    proxy.on("request", (http, connection) => handleRequest(http, connection, proxy));
+    
+    proxy.on("connection", connection => handleConnection(connection, proxy));
+    
+    proxy.on("close", connection => {
+        log("DEBUG", `Proxy closed`);
+    });
+    
+    proxy.listen(options.port || (options.ssl ? 443 : 80), options.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port} (${options.ssl ? "SSL" : "TCP"})`));
+}
+
+function handleRequest(http, connection, proxy) {
     const host = http.getHeader("Host");
     const hostname = host?.split(":")[0];
     const address = connection.clientConnection.remoteAddress;
@@ -300,24 +334,16 @@ proxy.on("request", (http, connection) => {
 
     const unknownHostPage = formatPage("unknownHost", formatStringObject);
     if (unknownHostPage) return connection.bypass(404, "Not Found", [["Content-Type", "text/html"]], unknownHostPage);
-});
+}
 
-proxy.on("connection", connection => {
+function handleConnection(connection, proxy) {
     log("DEBUG", `${proxy.connections.length} connection(s): ${proxy.connections.map(i => i.clientConnection.remoteAddress).join(", ")}`);
     if (config.maxConnections && proxy.connections.length > config.maxConnections) {
         // Over connection limit
         const connectionLimitPage = formatPage("connectionLimit");
         return connection.bypass(503, "Service Unavailable", [["Retry-After", 1], ...(connectionLimitPage ? [["Content-Type", "text/html"]] : [])], connectionLimitPage);
     }
-});
-
-proxy.on("close", connection => {
-    log("DEBUG", `Closed`);
-});
-
-proxy.listen(config.port || (config.ssl ? 443 : 80), config.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port}`));
-
-// Functions
+}
 
 function initServices() {
     return new DirectoryMonitor(config.servicesLocation, {

@@ -13,6 +13,7 @@ A HTTP proxy based on the `Host` header (eg: `plex.example.org` > `localhost:324
 * URL bypass
 * Modify request and response headers
 * Easy to configure
+* Dual SSL/TCP servers
 
 The default configuration whitelist's [Cloudflare's IPv4 ranges](https://www.cloudflare.com/ips) and local IP's by default
 
