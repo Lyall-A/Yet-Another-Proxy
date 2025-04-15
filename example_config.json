@@ -35,7 +35,10 @@
     ],
     "defaultServiceOptions": {
         "redirectPublicToLocal": true,
-        "localHostname": "{{serviceHost}}localhost",
+        "localRedirectProtocol": null,
+        "localRedirectHost": "{{serviceHost}}localhost",
+        "localRedirectPort": null,
+        "localRedirectPath": null,
         "publicAddressBypassAuthentication": true,
         "publicAddressBypassWhitelist": true,
         "disallowRobots": true,
