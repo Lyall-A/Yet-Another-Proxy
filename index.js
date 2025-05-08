@@ -298,6 +298,8 @@ function handleRequest(http, connection, proxy) {
                     const urlBypassedService = typeof urlBypassed.service === "string" ? services.find(i => i.name === urlBypassed.service) : urlBypassed.service;
                     if (!urlBypassedService) return;
                     return assignService(urlBypassedService);
+                } else if (urlBypassed.redirect) {
+                    return connection.bypass(307, "Temporary Redirect", [["Location", formatString(urlBypassed.redirect, formatStringObject)]]);
                 } else {
                     return connection.bypass(
                         urlBypassed.status || 200,
