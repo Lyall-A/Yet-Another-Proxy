@@ -272,8 +272,11 @@ function handleRequest(http, connection, proxy) {
             });
         }
 
-        // Redirect public to local if possible
-        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localRedirectHost && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${formatString(`${service.localRedirectProtocol ?? (config.ssl ? "https" : "http")}://${service.localRedirectHost}:${service.localRedirectPort ?? config.port}${service.localRedirectPath ?? ""}`, formatStringObject)}${!service.localRedirectPath ? http.target : ""}`]]);
+        // Redirect to specific local address
+        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localRedirectHost && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${formatString(`${service.localRedirectProtocol ?? (config.ssl ? "https" : "http")}://${service.localRedirectHost}:${service.localRedirectPort ?? config.port}`, formatStringObject)}${http.target}`]]);
+
+        // Redirect to specific public address
+        if (publicAddress !== (realAddress || address) && service.forcePublicHost && service.publicHost && hostname !== service.publicRedirectHost) return connection.bypass(307, "Temporary Redirect", [["Location", `${formatString(`${service.publicRedirectProtocol ?? (config.ssl ? "https" : "http")}://${service.publicRedirectHost}:${service.publicRedirectPort ?? config.port}`, formatStringObject)}${http.target}`]]);
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {
