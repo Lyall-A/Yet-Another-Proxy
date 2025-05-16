@@ -298,6 +298,7 @@ function handleRequest(http, connection, proxy) {
             const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
             if (urlBypassed) {
                 if (urlBypassed.service) {
+                    // TODO: apply config.json default service options to this
                     const urlBypassedService = typeof urlBypassed.service === "string" ? services.find(i => i.name === urlBypassed.service) : urlBypassed.service;
                     if (!urlBypassedService) return;
                     return assignService(urlBypassedService);
