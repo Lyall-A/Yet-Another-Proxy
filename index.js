@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
+const constants = require("./constants");
 const formatString = require("./utils/formatString");
 const matchAddress = require("./utils/matchAddress");
 const matchUrl = require("./utils/matchUrl");
@@ -14,23 +15,9 @@ const getPublicAddress = require("./utils/getPublicAddress");
 const modifyHeaders = require("./utils/modifyHeaders");
 const Proxy = require("./src/Proxy");
 
-const argOptions = [
-    { long: "help", short: "h", description: "This help menu" },
-    { long: "config", description: "Use a different config file", default: "./config.json" },
-    { long: "services", description: "Use a different services directory" },
-    { long: "pages", description: "Use a different pages directory" },
-    { long: "hostname", description: "Listen on hostname", default: "0.0.0.0" },
-    { long: "hostname2", description: "Listen on hostname (SSL)" },
-    { long: "port", description: "Listen on port", type: "int" },
-    { long: "port2", description: "Listen on port (SSL), define with SSL enabled to run a TCP and SSL server", type: "int" },
-    { long: "debug", description: "Enable debug mode (currently only adds extra information to response headers)" },
-    { long: "secure", description: "Enable SSL", type: "bool" },
-    { long: "cert", description: "Certificate file" },
-    { long: "key", description: "Private key file" },
-];
-const args = parseArgs(process.argv.slice(2), argOptions);
-
-if (args.help.present) return console.log(`Usage: ${process.argv0} . [OPTION]...\n\n  ${argOptions.map(i => `${[i.long ? `--${i.long}` : null, i.short ? `-${i.short}` : null].filter(i => i).join(", ").padEnd(25, " ")}${i.description || "???"}${i.default ? `, default: ${i.default}` : ""}`).join("\n  ")}`);
+// CLI arguments
+const args = parseArgs(process.argv.slice(2), constants.argOptions);
+if (args.help.present) return console.log(`Usage: ${process.argv0} . [OPTION]...\n\n  ${constants.argOptions.map(i => `${[i.long ? `--${i.long}` : null, i.short ? `-${i.short}` : null].filter(i => i).join(", ").padEnd(25, " ")}${i.description || "???"}${i.default ? `, default: ${i.default}` : ""}`).join("\n  ")}`);
 
 // Load and watch config
 let config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
@@ -94,6 +81,7 @@ if (config.ssl && config.sslPort && config.port) {
 
 // Functions
 
+// Setup and start a proxy server
 function setupProxy(options = { }) {
     const proxy = new Proxy({
         ssl: options.ssl,
@@ -118,6 +106,8 @@ function handleRequest(http, connection, proxy) {
     const address = connection.clientConnection.remoteAddress;
     const realAddress = http.headers.find(([key, value]) => config.realIPHeaders?.includes(key))?.[1];
     const formattedAddress = `${address}${realAddress ? ` (${realAddress})` : ""}`;
+    const sameNetworkPublically = publicAddress === (realAddress || address);
+    const sameNetworkLocally = matchAddress(realAddress || address, constants.localAddresses) ? true : false;
 
     const formatStringObject = {
         http,
@@ -166,6 +156,7 @@ function handleRequest(http, connection, proxy) {
         
         // Authentication
         if (service.authentication) {
+            // Check if authentication can be bypassed
             const bypassedAuth = !!(
                 (service.publicAddressBypassAuthentication && (publicAddress === address || (realAddress && publicAddress === realAddress))) ||
                 (service.authenticationBypassedAddresses?.length && (
@@ -273,10 +264,22 @@ function handleRequest(http, connection, proxy) {
         }
 
         // Redirect to specific local address
-        if (publicAddress === (realAddress || address) && service.redirectPublicToLocal && service.localRedirectHost && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${service.localRedirectProtocol ? formatString(service.localRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http"}://${formatString(service.localRedirectHost, formatStringObject)}:${service.localRedirectPort ? formatString(service.localRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port}${http.target}`]]);
+        if (sameNetworkPublically && service.forceLocalHost && service.localRedirectHost && serviceHost.endsWith(".")) {
+            const localRedirectProtocol = service.localRedirectProtocol ? formatString(service.localRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http";
+            const localRedirectHost = formatString(service.localRedirectHost, formatStringObject);
+            const localRedirectPort = service.localRedirectPort ? formatString(service.localRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port;
+            return connection.bypass(307, "Temporary Redirect", [["Location", `${localRedirectProtocol}://${localRedirectHost}:${localRedirectPort}${http.target}`]]);
+        }
 
         // Redirect to specific public address
-        // if (publicAddress !== (realAddress || address) && service.forcePublicHost && service.publicRedirectHost && hostname !== formatString(service.publicRedirectHost, formatStringObject) && serviceHost.endsWith(".")) return connection.bypass(307, "Temporary Redirect", [["Location", `${service.publicRedirectProtocol ? formatString(service.publicRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http"}://${formatString(service.publicRedirectHost, formatStringObject)}:${service.publicRedirectPort ? formatString(service.publicRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port}${http.target}`]]);
+        if (!sameNetworkLocally && service.forcePublicHost && service.publicRedirectHost && serviceHost.endsWith(".")) {
+            const publicRedirectProtocol = service.publicRedirectProtocol ? formatString(service.publicRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http";
+            const publicRedirectHost = formatString(service.publicRedirectHost, formatStringObject);
+            const publicRedirectPort = service.publicRedirectPort ? formatString(service.publicRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port;
+            if (hostname !== publicRedirectHost) {
+                return connection.bypass(307, "Temporary Redirect", [["Location", `${publicRedirectProtocol}://${publicRedirectHost}:${publicRedirectPort}${http.target}`]]);
+            }
+        }
 
         // Modify request headers
         if (service.modifiedRequestHeaders) {

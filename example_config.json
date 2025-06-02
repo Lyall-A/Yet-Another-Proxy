@@ -36,7 +36,7 @@
         "CF-Connecting-IP"
     ],
     "defaultServiceOptions": {
-        "redirectPublicToLocal": true,
+        "forceLocalHost": true,
         "localRedirectProtocol": null,
         "localRedirectHost": "{{serviceHost}}localhost",
         "localRedirectPort": null,
