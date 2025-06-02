@@ -267,7 +267,7 @@ function handleRequest(http, connection, proxy) {
         if (sameNetworkPublically && service.forceLocalHost && service.localRedirectHost && serviceHost.endsWith(".")) {
             const localRedirectProtocol = service.localRedirectProtocol ? formatString(service.localRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http";
             const localRedirectHost = formatString(service.localRedirectHost, formatStringObject);
-            const localRedirectPort = service.localRedirectPort ? formatString(service.localRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port;
+            const localRedirectPort = service.localRedirectPort || (config.ssl ? config.sslPort : null) || config.port;
             return connection.bypass(307, "Temporary Redirect", [["Location", `${localRedirectProtocol}://${localRedirectHost}:${localRedirectPort}${http.target}`]]);
         }
 
@@ -275,7 +275,7 @@ function handleRequest(http, connection, proxy) {
         if (!sameNetworkLocally && service.forcePublicHost && service.publicRedirectHost && serviceHost.endsWith(".")) {
             const publicRedirectProtocol = service.publicRedirectProtocol ? formatString(service.publicRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http";
             const publicRedirectHost = formatString(service.publicRedirectHost, formatStringObject);
-            const publicRedirectPort = service.publicRedirectPort ? formatString(service.publicRedirectPort, formatStringObject) : (config.ssl ? config.sslPort : null) || config.port;
+            const publicRedirectPort = service.publicRedirectPort || (config.ssl ? config.sslPort : null) || config.port;
             if (hostname !== publicRedirectHost) {
                 return connection.bypass(307, "Temporary Redirect", [["Location", `${publicRedirectProtocol}://${publicRedirectHost}:${publicRedirectPort}${http.target}`]]);
             }
