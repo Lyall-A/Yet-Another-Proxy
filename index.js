@@ -22,64 +22,85 @@ if (args.help.present) return console.log(`Usage: ${process.argv0} . [OPTION]...
 // Load and watch config
 let config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
 fs.watch(args.config.value, () => {
-    log("INFO", "Reloading config (you might have to restart to apply certain configs)");
-    try { config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8"))); } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
+    log("INFO", "Reloading config");
+    try {
+        config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
+        log("INFO", "Config reloaded, reloading everything else");
+        services.loadFiles();
+        pages.loadFiles();
+        applyCliArgs();
+        startServers();
+    } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
+
 // Load and watch services
 const services = initServices();
+
 // Load and watch pages
 const pages = initPages();
 
 // Apply command arguments to config
-if (args.services.present) config.servicesLocation = args.services.value;
-if (args.pages.present) config.pagesLocation = args.pages.value;
-if (args.hostname.present) config.hostname = args.hostname.value;
-if (args.hostname2.present) config.sslHostname = args.hostname2.value;
-if (args.port.present) config.port = args.port.value;
-if (args.port2.present) config.sslPort = args.port2.value;
-if (args.debug.present) config.debug = args.debug.value;
-if (args.secure.present) config.ssl = true;
-if (args.cert.present) config.cert = args.cert.value;
-if (args.key.present) config.key = args.key.value;
+applyCliArgs();
 
 // Variables
-let publicAddress = config.publicAddress || null;
+let publicAddress;
+let primaryServer;
+let secondaryServer;
 
 // Retrieve public address
-if (config.retrievePublicAddress) {
-    (async function updatePublicAddress() {
-        await getPublicAddress(config.publicAddressApi).then(newPublicAddress => {
-            if (publicAddress !== newPublicAddress) {
-                publicAddress = newPublicAddress;
-                log("INFO", `Public address changed to '${publicAddress}'`);
-            }
-        }).catch(err => {
-            log("ERROR", `Failed to get public address: ${err}`);
-        });
+(async function updatePublicAddress() {
+    if (!config.retrievePublicAddress) return publicAddress = config.publicAddress || null;
 
-        if (config.retrievePublicAddressInterval) setTimeout(updatePublicAddress, config.retrievePublicAddressInterval * 1000);
-    })();
-}
-
-// Start proxy server
-setupProxy({
-    ssl: config.ssl,
-    cert: config.cert,
-    key: config.key,
-    port: (config.ssl ? config.sslPort : null) || config.port,
-    hostname: (config.ssl ? config.sslHostname : null) || config.hostname,
-});
-
-if (config.ssl && config.sslPort && config.port) {
-    // Start secondary proxy server
-    setupProxy({
-        ssl: false,
-        port: config.port,
-        hostname: config.hostname
+    await getPublicAddress(config.publicAddressApi).then(newPublicAddress => {
+        if (publicAddress !== newPublicAddress) {
+            publicAddress = newPublicAddress;
+            log("INFO", `Public address changed to '${publicAddress}'`);
+        }
+    }).catch(err => {
+        log("ERROR", `Failed to get public address: ${err}`);
     });
-}
+
+    if (config.retrievePublicAddressInterval) setTimeout(updatePublicAddress, config.retrievePublicAddressInterval * 1000);
+})();
+
+startServers();
 
 // Functions
+function applyCliArgs() {
+    if (args.services.present) config.servicesLocation = args.services.value;
+    if (args.pages.present) config.pagesLocation = args.pages.value;
+    if (args.hostname.present) config.hostname = args.hostname.value;
+    if (args.hostname2.present) config.sslHostname = args.hostname2.value;
+    if (args.port.present) config.port = args.port.value;
+    if (args.port2.present) config.sslPort = args.port2.value;
+    if (args.debug.present) config.debug = args.debug.value;
+    if (args.secure.present) config.ssl = true;
+    if (args.cert.present) config.cert = args.cert.value;
+    if (args.key.present) config.key = args.key.value;
+}
+
+function startServers() {
+    if (primaryServer) primaryServer.close();
+    if (secondaryServer) secondaryServer.close();
+
+    // Start proxy server
+    primaryServer = setupProxy({
+        ssl: config.ssl,
+        cert: config.cert,
+        key: config.key,
+        port: (config.ssl ? config.sslPort : null) || config.port,
+        hostname: (config.ssl ? config.sslHostname : null) || config.hostname,
+    });
+
+    if (config.ssl && config.sslPort && config.port) {
+        // Start secondary proxy server
+        secondaryServer = setupProxy({
+            ssl: false,
+            port: config.port,
+            hostname: config.hostname
+        });
+    }
+}
 
 // Setup and start a proxy server
 function setupProxy(options = { }) {
@@ -98,6 +119,8 @@ function setupProxy(options = { }) {
     });
     
     proxy.listen(options.port || (options.ssl ? 443 : 80), options.hostname || "0.0.0.0", () => log("INFO", `Proxy listening at ${proxy.hostname}:${proxy.port} (${options.ssl ? "SSL" : "TCP"})`));
+
+    return proxy;
 }
 
 function handleRequest(http, connection, proxy) {
@@ -302,7 +325,7 @@ function handleRequest(http, connection, proxy) {
             if (urlBypassed) {
                 if (urlBypassed.service) {
                     // TODO: apply config.json default service options to this
-                    const urlBypassedService = typeof urlBypassed.service === "string" ? services.find(i => i.name === urlBypassed.service) : urlBypassed.service;
+                    const urlBypassedService = typeof urlBypassed.service === "string" ? services.files.find(i => i.name === urlBypassed.service) : urlBypassed.service;
                     if (!urlBypassedService) return;
                     return assignService(urlBypassedService);
                 } else if (urlBypassed.redirect) {
@@ -333,7 +356,7 @@ function handleRequest(http, connection, proxy) {
         }
     }
 
-    for (const service of services) {
+    for (const service of services.files) {
         if (!matchHost(service.hosts, hostname)) continue;
 
         return assignService(service);
@@ -393,7 +416,7 @@ function initServices() {
 
             return service;
         }
-    }).files;
+    });
 }
 
 function initPages() {
@@ -417,7 +440,7 @@ function initPages() {
                 data
             }
         }
-    }).files;
+    });
 }
 
 function formatPage(page, formatStringObject = {}) {

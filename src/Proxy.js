@@ -57,6 +57,10 @@ class Proxy extends EventEmitter {
         this.hostname = hostname || this.hostname;
         this.server.listen(this.port, this.hostname, callback);
     }
+
+    close(callback) {
+        this.server.close(callback);
+    }
 }
 
 module.exports = Proxy;
