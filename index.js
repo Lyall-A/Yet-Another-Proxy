@@ -291,7 +291,9 @@ function handleRequest(http, connection, proxy) {
             const localRedirectProtocol = service.localRedirectProtocol ? formatString(service.localRedirectProtocol, formatStringObject) : config.ssl ? "https" : "http";
             const localRedirectHost = formatString(service.localRedirectHost, formatStringObject);
             const localRedirectPort = service.localRedirectPort || (config.ssl ? config.sslPort : null) || config.port;
-            return connection.bypass(307, "Temporary Redirect", [["Location", `${localRedirectProtocol}://${localRedirectHost}:${localRedirectPort}${http.target}`]]);
+            if (hostname !== localRedirectHost) {
+                return connection.bypass(307, "Temporary Redirect", [["Location", `${localRedirectProtocol}://${localRedirectHost}:${localRedirectPort}${http.target}`]]);
+            }
         }
 
         // Redirect to specific public address
