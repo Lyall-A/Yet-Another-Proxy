@@ -23,7 +23,7 @@
         "headers": null,
         "json": null
     },
-    "pagesLocation": "pages",
+    "pagesLocation": "example_pages",
     "pageLocations": {
         "authentication": "authentication.html",
         "unknownHost": "unknown-host.html",
