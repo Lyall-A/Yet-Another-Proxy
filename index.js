@@ -30,6 +30,7 @@ fs.watch(args.config.value, () => {
         pages.loadFiles();
         applyCliArgs();
         startServers();
+        // TODO (asap): do something similar to DirectoryMonitor but for files, and do it for config, cert and key file
     } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
 
