@@ -457,7 +457,7 @@ function initPages() {
 }
 
 function formatPage(page, formatStringObject = {}) {
-    return formatString(pages.find(i => i.page === page)?.data || "", formatStringObject);
+    return formatString(pages.files.find(i => i.page === page)?.data || "", formatStringObject);
 }
 
 function log(level, ...msgs) {
