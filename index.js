@@ -22,15 +22,15 @@ if (args.help.present) return console.log(`Usage: ${process.argv0} . [OPTION]...
 // Load and watch config
 let config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
 fs.watch(args.config.value, () => {
-    log("INFO", "Reloading config");
+    log("INFO", "Reloading config - some options require restart");
     try {
         config = parseConfig(JSON.parse(fs.readFileSync(args.config.value, "utf-8")));
         log("INFO", "Config reloaded, reloading everything else");
+
         services.loadFiles();
         pages.loadFiles();
         applyCliArgs();
         startServers();
-        // TODO (asap): do something similar to DirectoryMonitor but for files, and do it for config, cert and key file
     } catch (err) { log("ERROR", `Failed to reload config, ${err}`); }
 });
 
@@ -65,6 +65,17 @@ let secondaryServer;
 })();
 
 startServers();
+
+// Watch for SSL certificate changes
+(() => {
+    if (config.ssl && config.cert) fs.watch(config.cert, certificateChanged);
+    if (config.ssl && config.key) fs.watch(config.key, certificateChanged);
+
+    function certificateChanged() {
+        log("INFO", "SSL certificate changed, restarting server(s)");
+        startServers();
+    }
+})();
 
 // Functions
 function applyCliArgs() {
@@ -327,7 +338,6 @@ function handleRequest(http, connection, proxy) {
             const urlBypassed = service.urlBypassed[Object.keys(service.urlBypassed).find(i => matchUrl(i, http.target))];
             if (urlBypassed) {
                 if (urlBypassed.service) {
-                    // TODO: apply config.json default service options to this
                     const urlBypassedService = typeof urlBypassed.service === "string" ? services.files.find(i => i.name === urlBypassed.service) : urlBypassed.service;
                     if (!urlBypassedService) return;
                     return assignService(urlBypassedService);
