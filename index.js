@@ -119,7 +119,8 @@ function setupProxy(options = { }) {
     const proxy = new Proxy({
         ssl: options.ssl,
         certFile: options.cert,
-        keyFile: options.key
+        keyFile: options.key,
+        serverOptions: config.serverOptions
     });
     
     proxy.on("request", (http, connection) => handleRequest(http, connection, proxy));
